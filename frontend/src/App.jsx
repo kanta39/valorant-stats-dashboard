@@ -96,63 +96,51 @@ function App() {
       : playerData.match_history.filter(m => m.mode.toLowerCase().replace(/\s/g, '') === filterMode.toLowerCase().replace(/\s/g, ''))
   );
 
-  const getRoundIcon = (endType) => {
-    // กำหนดคลาสพื้นฐานให้ไอคอนขนาดพอดีกับช่อง
-    const iconClass = "w-4 h-4 md:w-5 md:h-5 drop-shadow-md";
+const getRoundIcon = (endType) => {
+    const iconClass = "w-5 h-5 drop-shadow-md";
     
     switch(endType) {
       case 'Eliminated': 
-        // ไอคอน: วงกลมมีกากบาท (จัดการศัตรูหมด)
         return (
-          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="9"></circle>
-            <line x1="8" y1="8" x2="16" y2="16"></line>
-            <line x1="16" y1="8" x2="8" y2="16"></line>
+          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <circle cx="12" cy="12" r="7.5" />
+            <path d="M8 8l8 8M16 8l-8 8" />
           </svg>
         );
       case 'Bomb defused': 
-        // ไอคอน: คีมตัดสายไฟ (กู้สไปก์)
         return (
           <svg className={iconClass} viewBox="0 0 24 24" fill="currentColor">
-            <path d="M14 2.5l-1.5 4.5a2.5 2.5 0 0 1-5 0L6 2.5a1 1 0 0 0-1.5 1.2l3 7.8c.2.6.7 1.1 1.3 1.3l-1.6 8a1 1 0 0 0 2 0l1.4-7c.2.1.5.1.8.1s.6 0 .8-.1l1.4 7a1 1 0 1 0 2 0l-1.6-8c.6-.2 1.1-.7 1.3-1.3l3-7.8A1 1 0 0 0 14 2.5z"/>
+            <path d="M15 2.5l-2 5 1.5 2.5-3 4.5c-.3.5-1.1.5-1.4 0l-3-4.5L8.5 7.5l-2-5A1.5 1.5 0 0 0 4.5 4v2c0 1.5.8 2.5 1.8 3L10.5 12v9a1.5 1.5 0 0 0 3 0v-9l4.2-3c1-.5 1.8-1.5 1.8-3V4a1.5 1.5 0 0 0-2-1.5z" />
           </svg>
         );
       case 'Bomb detonated': 
-        // ไอคอน: เป้าเล็ง/ระเบิด (สไปก์ทำงาน)
         return (
-          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="5"></circle>
-            <line x1="12" y1="1" x2="12" y2="5"></line>
-            <line x1="12" y1="19" x2="12" y2="23"></line>
-            <line x1="1" y1="12" x2="5" y2="12"></line>
-            <line x1="19" y1="12" x2="23" y2="12"></line>
+          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <circle cx="12" cy="12" r="4.5" />
+            <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
           </svg>
         );
       case 'Time out': 
-        // ไอคอน: นาฬิกาทราย (หมดเวลา)
         return (
           <svg className={iconClass} viewBox="0 0 24 24" fill="currentColor">
-            <path d="M17 3H7v4l4 5-4 5v4h10v-4l-4-5 4-5V3zm-2 2v1.5l-3 4-3-4V5h6zm0 14H9v-1.5l3-4 3 4V19z"></path>
+            <path d="M16 3H8v4.5l3 4-3 4V20h8v-4.5l-3-4 3-4V3z" />
           </svg>
         );
       case 'Surrendered':
-        // ไอคอน: ธงยอมแพ้
         return (
           <svg className={iconClass} viewBox="0 0 24 24" fill="currentColor">
-            <path d="M5 3v18h2V14h11.5l-2-4 2-4H7V3H5z"></path>
+            <path d="M6 4v16h2v-6h8.5l-2-3 2-3H8V4H6z" />
           </svg>
         );
       default: 
         return (
-          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="9"></circle>
-            <line x1="8" y1="8" x2="16" y2="16"></line>
-            <line x1="16" y1="8" x2="8" y2="16"></line>
+          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <circle cx="12" cy="12" r="7.5" />
+            <path d="M8 8l8 8M16 8l-8 8" />
           </svg>
         );
     }
   }
-
   const getOverallStats = () => {
     if (displayedMatches.length === 0) return null;
     
@@ -642,7 +630,7 @@ function App() {
           </p>
         </footer>
       )}
-      
+
       {/* 🔥 🔥 FULL SCOREBOARD MODAL POP-UP 🔥 🔥 */}
       {selectedMatch && (
         <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-6 animate-fade-in" onClick={() => setSelectedMatch(null)}>
@@ -667,9 +655,12 @@ function App() {
                   </div>
                 </div>
 
+                {/* 🌟 อัปเกรด Timeline ให้เหมือนตัวเกมเป๊ะๆ (ไม่มีกรอบ, เป็นจุดเล็กๆ) 🌟 */}
                 {selectedMatch.round_history && selectedMatch.round_history.length > 0 && (
                   <div className="w-full bg-[#111823] border border-gray-800/80 rounded-xl p-4 sm:p-5 mb-6">
-                    <div className="flex flex-col gap-2.5">
+                    <div className="flex flex-col gap-3">
+                      
+                      {/* Team B Row (ฝั่งสีฟ้า) */}
                       <div className="flex items-center w-full">
                         <div className="w-24 md:w-28 text-sm font-bold text-blue-400 flex justify-between items-center pr-4 border-r border-gray-700">
                           <span className="uppercase tracking-wide">Team B</span>
@@ -677,12 +668,16 @@ function App() {
                         </div>
                         <div className="flex flex-1 gap-1.5 md:gap-2 ml-4">
                           {selectedMatch.round_history.map(r => (
-                            <div key={r.round_num} className="flex-1 min-w-[20px] h-7 md:h-8 flex justify-center items-center rounded bg-[#162335]">
-                              {r.winning_team === 'Blue' ? <span className="text-blue-400 font-black text-base drop-shadow-[0_0_5px_rgba(96,165,250,0.5)]">{getRoundIcon(r.end_type)}</span> : <span className="text-gray-700/50 text-[10px]">●</span>}
+                            <div key={r.round_num} className="flex-1 flex justify-center items-center h-8">
+                              {r.winning_team === 'Blue' 
+                                ? <span className="text-teal-400 font-black drop-shadow-[0_0_5px_rgba(45,212,191,0.4)]">{getRoundIcon(r.end_type)}</span> 
+                                : <span className="w-1.5 h-1.5 rounded-full bg-gray-600/50"></span>}
                             </div>
                           ))}
                         </div>
                       </div>
+
+                      {/* Team A Row (ฝั่งสีแดง) */}
                       <div className="flex items-center w-full">
                         <div className="w-24 md:w-28 text-sm font-bold text-red-400 flex justify-between items-center pr-4 border-r border-gray-700">
                           <span className="uppercase tracking-wide">Team A</span>
@@ -690,20 +685,27 @@ function App() {
                         </div>
                         <div className="flex flex-1 gap-1.5 md:gap-2 ml-4">
                           {selectedMatch.round_history.map(r => (
-                            <div key={r.round_num} className="flex-1 min-w-[20px] h-7 md:h-8 flex justify-center items-center rounded bg-[#2a171e]">
-                              {r.winning_team === 'Red' ? <span className="text-red-400 font-black text-base drop-shadow-[0_0_5px_rgba(248,113,113,0.5)]">{getRoundIcon(r.end_type)}</span> : <span className="text-gray-700/50 text-[10px]">●</span>}
+                            <div key={r.round_num} className="flex-1 flex justify-center items-center h-8">
+                              {r.winning_team === 'Red' 
+                                ? <span className="text-[#ff4655] font-black drop-shadow-[0_0_5px_rgba(255,70,85,0.4)]">{getRoundIcon(r.end_type)}</span> 
+                                : <span className="w-1.5 h-1.5 rounded-full bg-gray-600/50"></span>}
                             </div>
                           ))}
                         </div>
                       </div>
-                      <div className="flex items-center mt-2 w-full">
+
+                      {/* Round Numbers Row (ตัวเลขบอกรอบด้านล่าง) */}
+                      <div className="flex items-center mt-1 w-full">
                         <div className="w-24 md:w-28 pr-4 border-r border-transparent"></div>
                         <div className="flex flex-1 gap-1.5 md:gap-2 ml-4">
                           {selectedMatch.round_history.map(r => (
-                            <div key={r.round_num} className="flex-1 text-center text-[10px] font-bold text-gray-500 tabular-nums">{r.round_num}</div>
+                            <div key={r.round_num} className="flex-1 text-center text-[10px] md:text-xs font-bold text-gray-500 tabular-nums">
+                              {r.round_num}
+                            </div>
                           ))}
                         </div>
                       </div>
+                      
                     </div>
                   </div>
                 )}
