@@ -633,7 +633,14 @@ function App() {
 
         </div>
       )}
-
+      {/* 📜 FOOTER - ประกาศลิขสิทธิ์ตามกฎของ Riot Games 📜 */}
+      {hasData && (
+        <footer className="w-full bg-gray-950 border-t border-gray-900 py-6 mt-8 text-center px-4">
+          <p className="text-gray-500 text-[10px] md:text-xs max-w-4xl mx-auto leading-relaxed">
+            This project is a non-commercial, fan-made application. VALORANT STATS isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc.
+          </p>
+        </footer>
+      )}
       {/* 🔥 🔥 FULL SCOREBOARD MODAL POP-UP 🔥 🔥 */}
       {selectedMatch && (
         <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-6 animate-fade-in" onClick={() => setSelectedMatch(null)}>
