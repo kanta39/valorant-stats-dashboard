@@ -73,7 +73,7 @@ function App() {
 
     try {
       //  ของใหม่ (ยิงเข้าเซิร์ฟเวอร์คลาวด์ออนไลน์)
-      const response = await fetch(`https://ชื่อแอปของคุณ.onrender.com/api/matches/${riotName.trim()}/${riotTag.trim()}?mode=${currentMode}`)
+      const response = await fetch(`https://val-stats-api.onrender.com/api/matches/${riotName.trim()}/${riotTag.trim()}?mode=${currentMode}`)
       const data = await response.json()
       if (data.error) { setErrorMsg(data.error); if (isNewSearch) setPlayerData(null); } 
       else { setPlayerData(data); }
