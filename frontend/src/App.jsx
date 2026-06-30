@@ -362,7 +362,39 @@ function App() {
           
           {/* 📊 แผงด้านซ้าย (Sidebar) - ลบคำสั่งล็อกตำแหน่งออกแล้ว เพื่อให้เลื่อนตามหน้าเว็บหลักพร้อมกันอย่างเป็นธรรมชาติ 📊 */}
           <div className="w-full lg:w-[320px] xl:w-[360px] flex-shrink-0 flex flex-col gap-5">
-            
+            {/* 🌟 RANK CARD 🌟 */}
+            {playerData.rank && (
+              <div className="bg-[#111823] border border-gray-800/80 rounded-2xl p-5 shadow-xl animate-fade-in relative overflow-hidden">
+                {/* แสงตกแต่งมุมขวาบนให้ดูพรีเมียม */}
+                <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-red-500/10 to-transparent rounded-bl-full"></div>
+                
+                <h3 className="text-white text-base font-black tracking-widest uppercase mb-4 flex items-center gap-2 relative z-10">
+                  <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                  COMPETITIVE RANK
+                </h3>
+                
+                <div className="flex items-center justify-between relative z-10">
+                  {/* แรงค์ปัจจุบัน */}
+                  <div className="flex flex-col items-center w-1/2 border-r border-gray-800">
+                    <span className="text-[10px] text-gray-500 font-bold mb-1 tracking-widest uppercase">ปัจจุบัน (Current)</span>
+                    <span className="text-lg font-black text-white uppercase text-center leading-tight drop-shadow-md">
+                      {playerData.rank.current}
+                    </span>
+                    {playerData.rank.current !== "Unranked" && (
+                      <span className="text-xs text-green-400 font-black mt-1 tracking-wider">{playerData.rank.current_rr} RR</span>
+                    )}
+                  </div>
+                  
+                  {/* แรงค์สูงสุด */}
+                  <div className="flex flex-col items-center w-1/2">
+                    <span className="text-[10px] text-gray-500 font-bold mb-1 tracking-widest uppercase">สูงสุด (Peak)</span>
+                    <span className="text-lg font-black text-[#ffc857] uppercase text-center leading-tight drop-shadow-md">
+                      {playerData.rank.peak}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
             {/* OVERALL SUMMARY */}
             {overallStats && (
               <div className="bg-[#111823] border border-gray-800/80 rounded-2xl p-5 shadow-xl animate-fade-in">
