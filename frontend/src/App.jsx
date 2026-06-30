@@ -364,7 +364,7 @@ function App() {
           <div className="w-full lg:w-[320px] xl:w-[360px] flex-shrink-0 flex flex-col gap-5">
             {/* 🌟 RANK CARD 🌟 */}
             {playerData.rank && (
-              <div className="bg-[#111823] border border-gray-800/80 rounded-2xl p-5 shadow-xl animate-fade-in relative overflow-hidden">
+              <div className="bg-[#111823] border border-gray-800/80 rounded-2xl p-5 shadow-xl animate-fade-in relative overflow-hidden mb-5">
                 {/* แสงตกแต่งมุมขวาบนให้ดูพรีเมียม */}
                 <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-red-500/10 to-transparent rounded-bl-full"></div>
                 
@@ -373,22 +373,45 @@ function App() {
                   COMPETITIVE RANK
                 </h3>
                 
-                <div className="flex items-center justify-between relative z-10">
+                <div className="flex items-center justify-between relative z-10 mt-2">
                   {/* แรงค์ปัจจุบัน */}
-                  <div className="flex flex-col items-center w-1/2 border-r border-gray-800">
-                    <span className="text-[10px] text-gray-500 font-bold mb-1 tracking-widest uppercase">ปัจจุบัน (Current)</span>
-                    <span className="text-lg font-black text-white uppercase text-center leading-tight drop-shadow-md">
+                  <div className="flex flex-col items-center w-1/2 border-r border-gray-800 px-2">
+                    <span className="text-[10px] text-gray-500 font-bold mb-3 tracking-widest uppercase">ปัจจุบัน (Current)</span>
+                    
+                    <div className="h-14 flex items-center justify-center mb-3">
+                      {rankImages[playerData.rank.current.toLowerCase().replace(/\s/g, '')] || rankImages["unranked"] ? (
+                        <img 
+                          src={rankImages[playerData.rank.current.toLowerCase().replace(/\s/g, '')] || rankImages["unranked"]} 
+                          alt={playerData.rank.current} 
+                          className="w-16 h-16 object-contain drop-shadow-[0_0_10px_rgba(255,255,255,0.15)] scale-110" 
+                        />
+                      ) : (
+                        <span className="text-xs text-gray-500">No Icon</span>
+                      )}
+                    </div>
+                    
+                    <span className="text-sm font-black text-white uppercase text-center leading-tight drop-shadow-md">
                       {playerData.rank.current}
                     </span>
-                    {playerData.rank.current !== "Unranked" && (
-                      <span className="text-xs text-green-400 font-black mt-1 tracking-wider">{playerData.rank.current_rr} RR</span>
-                    )}
                   </div>
                   
                   {/* แรงค์สูงสุด */}
-                  <div className="flex flex-col items-center w-1/2">
-                    <span className="text-[10px] text-gray-500 font-bold mb-1 tracking-widest uppercase">สูงสุด (Peak)</span>
-                    <span className="text-lg font-black text-[#ffc857] uppercase text-center leading-tight drop-shadow-md">
+                  <div className="flex flex-col items-center w-1/2 px-2">
+                    <span className="text-[10px] text-gray-500 font-bold mb-3 tracking-widest uppercase">สูงสุด (Peak)</span>
+                    
+                    <div className="h-14 flex items-center justify-center mb-3">
+                      {rankImages[playerData.rank.peak.toLowerCase().replace(/\s/g, '')] || rankImages["unranked"] ? (
+                        <img 
+                          src={rankImages[playerData.rank.peak.toLowerCase().replace(/\s/g, '')] || rankImages["unranked"]} 
+                          alt={playerData.rank.peak} 
+                          className="w-16 h-16 object-contain drop-shadow-[0_0_10px_rgba(255,200,87,0.2)] scale-110" 
+                        />
+                      ) : (
+                        <span className="text-xs text-gray-500">No Icon</span>
+                      )}
+                    </div>
+
+                    <span className="text-sm font-black text-[#ffc857] uppercase text-center leading-tight drop-shadow-md">
                       {playerData.rank.peak}
                     </span>
                   </div>
