@@ -103,6 +103,9 @@ def get_player_matches(name: str, tag: str, mode: str = "All"):
             
             for match in data['data']:
                 metadata = match['metadata']
+                
+                if match.get('players') is None:
+                    continue  # สั่งให้ข้ามไปแมตช์ถัดไปทันที
                 all_players = match['players']['all_players']
                 
                 teams_data = match.get('teams', {})
