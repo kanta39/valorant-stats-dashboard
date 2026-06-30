@@ -1,0 +1,15 @@
+# ไฟล์ฝั่ง Node.js (React)
+node_modules/
+dist/
+build/
+.env
+
+# ไฟล์ฝั่ง Python
+__pycache__/
+venv/
+env/
+*.pyc
+
+# ไฟล์ระบบ OS
+.DS_Store
+Thumbs.db
