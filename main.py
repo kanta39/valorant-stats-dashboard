@@ -9,13 +9,13 @@ load_dotenv()
 
 app = FastAPI()
 
-# 🌐 1. ตั้งค่า CORS เพื่อให้หน้าบ้าน (React) วิ่งมาดึงข้อมูลได้โดยไม่โดนบล็อก
+# 🔥 เพิ่มโค้ดชุดนี้เข้าไปใต้คำว่า app = FastAPI() 🔥
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # อนุญาตให้ทุกเว็บไซต์วิ่งเข้ามาดึงข้อมูลได้ (ตอนพัฒนา)
+    allow_origins=["*"],  # อนุญาตให้เว็บ Vercel (หรือเว็บอื่นๆ) เข้ามาดึงข้อมูลได้
     allow_credentials=True,
-    allow_methods=["*"], # อนุญาตทุกคำสั่ง (GET, POST, etc.)
-    allow_headers=["*"], # อนุญาตทุกการส่งข้อมูลหัวข้อ
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # 🔑 2. ดึง API Key มาจากไฟล์ลับ .env อย่างปลอดภัย
