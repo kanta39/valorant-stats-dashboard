@@ -97,12 +97,59 @@ function App() {
   );
 
   const getRoundIcon = (endType) => {
+    // กำหนดคลาสพื้นฐานให้ไอคอนขนาดพอดีกับช่อง
+    const iconClass = "w-4 h-4 md:w-5 md:h-5 drop-shadow-md";
+    
     switch(endType) {
-      case 'Eliminated': return '✕';
-      case 'Bomb defused': return '✂'; 
-      case 'Bomb detonated': return '✹'; 
-      case 'Time out': return '⏳';
-      default: return '✕';
+      case 'Eliminated': 
+        // ไอคอน: วงกลมมีกากบาท (จัดการศัตรูหมด)
+        return (
+          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="9"></circle>
+            <line x1="8" y1="8" x2="16" y2="16"></line>
+            <line x1="16" y1="8" x2="8" y2="16"></line>
+          </svg>
+        );
+      case 'Bomb defused': 
+        // ไอคอน: คีมตัดสายไฟ (กู้สไปก์)
+        return (
+          <svg className={iconClass} viewBox="0 0 24 24" fill="currentColor">
+            <path d="M14 2.5l-1.5 4.5a2.5 2.5 0 0 1-5 0L6 2.5a1 1 0 0 0-1.5 1.2l3 7.8c.2.6.7 1.1 1.3 1.3l-1.6 8a1 1 0 0 0 2 0l1.4-7c.2.1.5.1.8.1s.6 0 .8-.1l1.4 7a1 1 0 1 0 2 0l-1.6-8c.6-.2 1.1-.7 1.3-1.3l3-7.8A1 1 0 0 0 14 2.5z"/>
+          </svg>
+        );
+      case 'Bomb detonated': 
+        // ไอคอน: เป้าเล็ง/ระเบิด (สไปก์ทำงาน)
+        return (
+          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="5"></line>
+            <line x1="12" y1="19" x2="12" y2="23"></line>
+            <line x1="1" y1="12" x2="5" y2="12"></line>
+            <line x1="19" y1="12" x2="23" y2="12"></line>
+          </svg>
+        );
+      case 'Time out': 
+        // ไอคอน: นาฬิกาทราย (หมดเวลา)
+        return (
+          <svg className={iconClass} viewBox="0 0 24 24" fill="currentColor">
+            <path d="M17 3H7v4l4 5-4 5v4h10v-4l-4-5 4-5V3zm-2 2v1.5l-3 4-3-4V5h6zm0 14H9v-1.5l3-4 3 4V19z"></path>
+          </svg>
+        );
+      case 'Surrendered':
+        // ไอคอน: ธงยอมแพ้
+        return (
+          <svg className={iconClass} viewBox="0 0 24 24" fill="currentColor">
+            <path d="M5 3v18h2V14h11.5l-2-4 2-4H7V3H5z"></path>
+          </svg>
+        );
+      default: 
+        return (
+          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="9"></circle>
+            <line x1="8" y1="8" x2="16" y2="16"></line>
+            <line x1="16" y1="8" x2="8" y2="16"></line>
+          </svg>
+        );
     }
   }
 
