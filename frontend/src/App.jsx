@@ -97,7 +97,7 @@ function App() {
   );
 
   const getRoundIcon = (endType) => {
-    // ปรับขนาดให้พอดีเป๊ะ
+    // ปรับขนาดไอคอนให้ดูเป็นระเบียบและคมชัดเสมอ
     const iconClass = "w-5 h-5 md:w-6 md:h-6";
     
     switch(endType) {
@@ -136,12 +136,8 @@ function App() {
           </svg>
         );
       default: 
-        return (
-          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="8"></circle>
-            <path d="M9 9l6 6M15 9l-6 6"></path>
-          </svg>
-        );
+        // กรณีอื่นให้แสดงเป็นวงกลมจุดเล็กๆ เพื่อให้ดูคลีน
+        return <div className="w-2 h-2 rounded-full bg-gray-600"></div>;
     }
   }
   const getOverallStats = () => {
