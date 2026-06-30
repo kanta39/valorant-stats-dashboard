@@ -97,11 +97,12 @@ function App() {
   );
 
   const getRoundIcon = (endType) => {
-    // ปรับขนาดไอคอนให้ดูเป็นระเบียบและคมชัดเสมอ
+    // ปรับขนาดให้พอดีและแสดงผลคมชัดทุกอุปกรณ์
     const iconClass = "w-5 h-5 md:w-6 md:h-6";
     
     switch(endType) {
       case 'Eliminated': 
+        // สัญลักษณ์การจัดการศัตรู (รูปกากบาท)
         return (
           <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="8"></circle>
@@ -109,6 +110,7 @@ function App() {
           </svg>
         );
       case 'Bomb defused': 
+        // สัญลักษณ์กู้ระเบิด (รูปคีม)
         return (
           <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M14 2l-2 5-1 2-2 5 2 2 5-2 2-5-2-2-1-1z"></path>
@@ -116,6 +118,7 @@ function App() {
           </svg>
         );
       case 'Bomb detonated': 
+        // สัญลักษณ์ระเบิดทำงาน (รูปเป้าเล็ง/ระเบิด)
         return (
           <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="5"></circle>
@@ -123,6 +126,7 @@ function App() {
           </svg>
         );
       case 'Time out': 
+        // สัญลักษณ์หมดเวลา (รูปนาฬิกาทราย)
         return (
           <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M10 2h4M12 12l4 4M12 12l-4 4"></path>
@@ -130,14 +134,19 @@ function App() {
           </svg>
         );
       case 'Surrendered':
+        // สัญลักษณ์ยอมแพ้ (รูปธง)
         return (
           <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M4 2v20M4 4h12l-3 4 3 4H4"></path>
           </svg>
         );
       default: 
-        // กรณีอื่นให้แสดงเป็นวงกลมจุดเล็กๆ เพื่อให้ดูคลีน
-        return <div className="w-2 h-2 rounded-full bg-gray-600"></div>;
+        // สัญลักษณ์เริ่มต้นสำหรับรอบปกติ
+        return (
+          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="8"></circle>
+          </svg>
+        );
     }
   }
   const getOverallStats = () => {
