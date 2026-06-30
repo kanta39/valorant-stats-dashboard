@@ -72,7 +72,8 @@ function App() {
     if (isNewSearch) { currentMode = "All"; setFilterMode("All"); setActiveTab("overview"); }
 
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/matches/${riotName.trim()}/${riotTag.trim()}?mode=${currentMode}`)
+      //  ของใหม่ (ยิงเข้าเซิร์ฟเวอร์คลาวด์ออนไลน์)
+      const response = await fetch(`https://ชื่อแอปของคุณ.onrender.com/api/matches/${riotName.trim()}/${riotTag.trim()}?mode=${currentMode}`)
       const data = await response.json()
       if (data.error) { setErrorMsg(data.error); if (isNewSearch) setPlayerData(null); } 
       else { setPlayerData(data); }
