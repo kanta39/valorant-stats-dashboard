@@ -97,32 +97,51 @@ function App() {
   );
 
   const getRoundIcon = (endType) => {
-    // ไอคอนเหล่านี้เป็นไอคอน Official ของเกมที่ดึงผ่าน URL
-    const iconBaseUrl = "https://media.valorant-api.com/bundle/icons/"; // หรือใช้ Assets จาก API
+    // ปรับขนาดให้พอดีเป๊ะ
+    const iconClass = "w-5 h-5 md:w-6 md:h-6";
     
-    // วิธีที่ชัวร์ที่สุดคือใส่ URL ตรงๆ ที่เป็น Icon ของเกมคับ
-    const icons = {
-      'Eliminated': 'https://media.valorant-api.com/gamemodes/96bd3924-4f94-0136-128e-289196b06385/displayicon.png', // รูปตัวอย่าง
-      'Bomb defused': 'https://media.valorant-api.com/sprays/288f3f88-4467-6770-077b-3b85f67a6d88/fulltransparenticon.png', 
-      // หรือถ้าอยากได้เป๊ะๆ ผมแนะนำให้ใช้รูปที่เก็บไว้ใน assets ของคุณเองเพื่อความเร็ว
-    };
-
-    // เนื่องจาก URL ไอคอน official บางอย่างอาจเข้าถึงยาก ผมแนะนำให้ใช้รูปที่ผมคัดมาให้แล้วที่สวยงามและตรงใจที่สุดคับ:
-    const iconClass = "w-6 h-6 object-contain drop-shadow-md";
-
     switch(endType) {
       case 'Eliminated': 
-        return <img src="https://img.icons8.com/color/48/skull.png" className={iconClass} alt="Kill" />;
+        return (
+          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="8"></circle>
+            <path d="M9 9l6 6M15 9l-6 6"></path>
+          </svg>
+        );
       case 'Bomb defused': 
-        return <img src="https://img.icons8.com/color/48/spy-tool.png" className={iconClass} alt="Defuse" />;
+        return (
+          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14 2l-2 5-1 2-2 5 2 2 5-2 2-5-2-2-1-1z"></path>
+            <path d="M12 12l5 5"></path>
+          </svg>
+        );
       case 'Bomb detonated': 
-        return <img src="https://img.icons8.com/color/48/explosion.png" className={iconClass} alt="Explode" />;
+        return (
+          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="5"></circle>
+            <path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path>
+          </svg>
+        );
       case 'Time out': 
-        return <img src="https://img.icons8.com/color/48/hourglass.png" className={iconClass} alt="Time" />;
+        return (
+          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M10 2h4M12 12l4 4M12 12l-4 4"></path>
+            <path d="M5 3v4l4 5-4 5v4h14v-4l-4-5 4-5V3z"></path>
+          </svg>
+        );
       case 'Surrendered':
-        return <img src="https://img.icons8.com/color/48/white-flag.png" className={iconClass} alt="Surrender" />;
+        return (
+          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 2v20M4 4h12l-3 4 3 4H4"></path>
+          </svg>
+        );
       default: 
-        return <img src="https://img.icons8.com/color/48/skull.png" className={iconClass} alt="Kill" />;
+        return (
+          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="8"></circle>
+            <path d="M9 9l6 6M15 9l-6 6"></path>
+          </svg>
+        );
     }
   }
   const getOverallStats = () => {
