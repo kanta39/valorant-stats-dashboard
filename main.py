@@ -75,15 +75,23 @@ def get_player_matches(name: str, tag: str, mode: str = "All"):
     region = "ap"
     headers = {"Authorization": API_KEY}
     
-    # 1. แอบดึงแรงค์จริงมาเก็บไว้เผื่อเอาไปปะผุในโหมด Unrated
+# 1. อัปเกรดการดึงแรงค์ (ใช้ v2 เพื่อดึง Peak Rank และ RR)
     my_real_rank = "Unranked"
+    current_rr = 0
+    peak_rank = "Unranked"
+    
     try:
-        mmr_url = f"https://api.henrikdev.xyz/valorant/v1/mmr/{region}/{name}/{tag}"
+        mmr_url = f"https://api.henrikdev.xyz/valorant/v2/mmr/{region}/{name}/{tag}"
         mmr_res = requests.get(mmr_url, headers=headers)
         if mmr_res.status_code == 200:
-            mmr_data = mmr_res.json()
-            if 'data' in mmr_data and 'currenttierpatched' in mmr_data['data']:
-                my_real_rank = mmr_data['data']['currenttierpatched']
+            mmr_data = mmr_res.json().get('data', {})
+            if mmr_data:
+                current_data = mmr_data.get('current_data', {})
+                highest_rank = mmr_data.get('highest_rank', {})
+                
+                my_real_rank = current_data.get('currenttierpatched', 'Unranked')
+                current_rr = current_data.get('ranking_in_tier', 0)
+                peak_rank = highest_rank.get('patched_tier', 'Unranked')
     except Exception as e:
         print("ดึงข้อมูล MMR ไม่สำเร็จ:", e)
 
@@ -184,9 +192,17 @@ def get_player_matches(name: str, tag: str, mode: str = "All"):
                         "round_history": round_history,
                         "scoreboard": scoreboard_players
                     })
-            
             if match_history:
-                return {"message": "Success", "match_history": match_history}
+                # 🔥 ส่งข้อมูล Rank กลับไปให้หน้าบ้านเอาไปใส่ในการ์ด 🔥
+                return {
+                    "message": "Success", 
+                    "match_history": match_history,
+                    "rank": {
+                        "current": my_real_rank,
+                        "current_rr": current_rr,
+                        "peak": peak_rank
+                    }
+                }
             else:
                 return {"error": "ไม่พบข้อมูลสถิติของคุณในระบบแมตช์"}
         else:
