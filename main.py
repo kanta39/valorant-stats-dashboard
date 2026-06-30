@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware # นำเข้าตัวจัดการประตูรักษาความปลอดภัย
 import requests
 import os # เครื่องมืออ่านระบบปฏิบัติการ
@@ -51,6 +51,12 @@ def get_player_info(name: str, tag: str):
     url = f"https://api.henrikdev.xyz/valorant/v1/account/{name}/{tag}"
     headers = {"Authorization": API_KEY}
     response = requests.get(url, headers=headers)
+    
+    # 🔥 เพิ่ม 3 บรรทัดนี้เข้าไป เพื่อดักทางเวลาหาชื่อไม่เจอ
+    if response.status_code != 200:
+        raise HTTPException(status_code=404, detail="ไม่พบข้อมูลผู้เล่นนี้ โปรดตรวจสอบชื่อและแท็กอีกครั้ง")
+        
+    data = response.json()
     
     if response.status_code == 200:
         data = response.json()
