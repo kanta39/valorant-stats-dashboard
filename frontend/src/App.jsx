@@ -163,7 +163,7 @@ function App() {
     return { totalMatches, winRate, kdaRatio, wins, losses, draws, totalKills, totalDeaths, totalAssists };
   }
 
-  const getRoleStats = () => {
+  const getAgentStats = () => {
     if (displayedMatches.length === 0) return [];
     
     const stats = {};
@@ -173,31 +173,36 @@ function App() {
       const myPlayer = match.scoreboard?.find(p => p.name.toLowerCase() === targetName);
       if (!myPlayer) return;
 
-      const role = agentRoles[match.agent] || 'Unknown';
-      if (!stats[role]) {
-        stats[role] = { name: role, w: 0, l: 0, d: 0, k: 0, death: 0, a: 0, matches: 0 };
+      const agent = match.agent;
+      if (!stats[agent]) {
+        stats[agent] = { name: agent, w: 0, l: 0, d: 0, k: 0, death: 0, a: 0, matches: 0 };
       }
 
-      stats[role].matches += 1;
-      stats[role].k += match.raw_stats.kills;
-      stats[role].death += match.raw_stats.deaths;
-      stats[role].a += match.raw_stats.assists;
+      // เก็บสถิติสะสมของตัวละครนั้นๆ
+      stats[agent].matches += 1;
+      stats[agent].k += match.raw_stats.kills;
+      stats[agent].death += match.raw_stats.deaths;
+      stats[agent].a += match.raw_stats.assists;
 
       const myTeam = myPlayer.team;
       const redScore = match.teams.red;
       const blueScore = match.teams.blue;
 
-      if (redScore === blueScore) stats[role].d += 1;
-      else if (redScore > blueScore && myTeam === 'Red') stats[role].w += 1;
-      else if (blueScore > redScore && myTeam === 'Blue') stats[role].w += 1;
-      else stats[role].l += 1;
+      // เช็คผลแพ้ชนะ
+      if (redScore === blueScore) stats[agent].d += 1;
+      else if (redScore > blueScore && myTeam === 'Red') stats[agent].w += 1;
+      else if (blueScore > redScore && myTeam === 'Blue') stats[agent].w += 1;
+      else stats[agent].l += 1;
     });
 
+    // จัดเรียงจากตัวที่เล่นบ่อยสุดไปน้อยสุด
     return Object.values(stats).sort((a, b) => b.matches - a.matches);
   }
 
+  // เรียกใช้ฟังก์ชันที่เพิ่งสร้าง ไว้คู่กับบรรทัดที่เรียก overallStats คับ
   const overallStats = getOverallStats();
   const roleStatsArray = getRoleStats();
+  const agentStatsArray = getAgentStats(); // 👈 เพิ่มบรรทัดนี้เข้าไป
 
   const renderTeamTable = (teamName, teamData, teamColorClass, bgColorClass, targetPlayerName, matchMode) => {
     if (!teamData || teamData.length === 0) return null;
@@ -590,10 +595,60 @@ function App() {
             )}
 
             {activeTab === "agents" && (
-              <div className="w-full flex flex-col items-center justify-center py-20 text-center border border-dashed border-gray-800 rounded-3xl bg-gray-900/30">
-                <span className="text-5xl mb-4">🕵️‍♂️</span>
-                <h2 className="text-2xl font-black text-white mb-2">Agent Analytics</h2>
-                <p className="text-gray-500">ระบบวิเคราะห์ข้อมูลเอเจนต์ที่เล่นบ่อยและอัตราชนะ (กำลังอยู่ระหว่างการพัฒนา)</p>
+              <div className="w-full space-y-6 animate-fade-in pb-10">
+                <div className="border-b border-gray-800 pb-4">
+                  <h2 className="text-2xl font-black text-white flex items-center gap-2">
+                    <span className="text-red-500">🕵️‍♂️</span> AGENT ANALYTICS
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">สถิติการเล่นแยกตามเอเจนต์ของคุณ (จัดเรียงตามความถี่ที่เล่นบ่อยสุด)</p>
+                </div>
+
+                {agentStatsArray.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                    {agentStatsArray.map((agent, idx) => {
+                      const winRate = agent.matches > 0 ? ((agent.w / agent.matches) * 100) : 0;
+                      const kda = agent.death > 0 ? ((agent.k + agent.a) / agent.death).toFixed(2) : (agent.k + agent.a).toFixed(2);
+                      
+                      return (
+                        <div key={idx} className="bg-gray-900 border border-gray-800 rounded-2xl p-5 hover:border-red-500/50 transition-colors relative overflow-hidden group shadow-lg">
+                          {/* เอฟเฟกต์ลายน้ำรูปตัวละครด้านหลัง */}
+                          <div className="absolute -right-6 -top-6 opacity-5 group-hover:opacity-20 transition-opacity">
+                            {agentImages[agent.name] && <img src={agentImages[agent.name]} alt="bg" className="w-32 h-32 object-cover scale-150" />}
+                          </div>
+                          
+                          <div className="flex items-center gap-4 relative z-10 mb-4">
+                            <div className="w-16 h-16 bg-gray-950 rounded-xl border border-gray-700 p-1 flex-shrink-0">
+                              {agentImages[agent.name] ? (
+                                <img src={agentImages[agent.name]} alt={agent.name} className="w-full h-full object-contain drop-shadow-md" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center font-bold text-gray-600">{agent.name.substring(0,2)}</div>
+                              )}
+                            </div>
+                            <div>
+                              <h3 className="text-xl font-black text-white uppercase tracking-wider">{agent.name}</h3>
+                              <p className="text-xs text-gray-400 font-bold">{agentRoles[agent.name] || 'Unknown Role'}</p>
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-3 relative z-10">
+                            <div className="bg-gray-950/50 p-2 rounded-lg border border-gray-800 text-center">
+                              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Win Rate</p>
+                              <p className={`text-lg font-black ${winRate >= 50 ? 'text-green-400' : 'text-red-400'}`}>{winRate.toFixed(1)}%</p>
+                              <p className="text-[10px] text-gray-400">{agent.w}W - {agent.l}L</p>
+                            </div>
+                            <div className="bg-gray-950/50 p-2 rounded-lg border border-gray-800 text-center">
+                              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">KDA</p>
+                              <p className="text-lg font-black text-white">{kda}</p>
+                              <p className="text-[10px] font-mono text-gray-400">{agent.k}/{agent.death}/{agent.a}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-10 text-gray-500 border border-dashed border-gray-800 rounded-2xl">ไม่พบข้อมูลเอเจนต์ในโหมดนี้</div>
+                )}
               </div>
             )}
             {activeTab === "maps" && (
