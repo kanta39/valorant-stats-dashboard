@@ -29,6 +29,7 @@ function App() {
     fetch('https://valorant-api.com/v1/agents?isPlayableCharacter=true')
       .then(res => res.json())
       .then(data => {
+        if (!data || !data.data) return; // 🔥 ดักจับเผื่อ API ล่ม
         const imageMap = {};
         const roleMap = {};
         const rIconMap = {};
@@ -48,11 +49,14 @@ function App() {
     fetch('https://valorant-api.com/v1/competitivetiers')
       .then(res => res.json())
       .then(data => {
+        if (!data || !data.data || data.data.length === 0) return; // 🔥 ดักจับเผื่อ API ล่ม
         const latestEpisode = data.data[data.data.length - 1];
         const rankMap = {};
-        latestEpisode.tiers.forEach(tier => {
-          if (tier.tierName) rankMap[tier.tierName.toLowerCase().replace(/\s/g, '')] = tier.largeIcon || tier.smallIcon;
-        });
+        if (latestEpisode && latestEpisode.tiers) {
+          latestEpisode.tiers.forEach(tier => {
+            if (tier.tierName) rankMap[tier.tierName.toLowerCase().replace(/\s/g, '')] = tier.largeIcon || tier.smallIcon;
+          });
+        }
         rankMap["unrated"] = rankMap["unranked"];
         setRankImages(rankMap);
       })
@@ -89,7 +93,6 @@ function App() {
 
   const hasData = playerData && playerData.match_history && !errorMsg;
 
-  // 🔥 1. แก้ไขจุดนี้: ป้องกัน match.mode เป็น Null แล้วทำให้ .toLowerCase() พัง
   const displayedMatches = !hasData ? [] : (
     filterMode === "All" 
       ? playerData.match_history 
@@ -135,7 +138,6 @@ function App() {
       totalDeaths += match.raw_stats?.deaths || 0;
       totalAssists += match.raw_stats?.assists || 0;
 
-      // 🔥 2. แก้ไขจุดนี้: ป้องกัน p.name เป็น Null
       const myPlayer = match.scoreboard?.find(p => String(p.name || "").toLowerCase() === targetName);
       if (myPlayer) {
         const myTeam = myPlayer.team;
@@ -156,6 +158,40 @@ function App() {
     return { totalMatches, winRate, kdaRatio, wins, losses, draws, totalKills, totalDeaths, totalAssists };
   }
 
+  // 🔥 เอากลับมาแล้ว! ฟังก์ชัน getRoleStats ที่ทำเว็บพังเพราะหายไป 🔥
+  const getRoleStats = () => {
+    if (displayedMatches.length === 0) return [];
+    
+    const stats = {};
+    const targetName = searchQuery.split('#')[0].toLowerCase();
+
+    displayedMatches.forEach(match => {
+      const myPlayer = match.scoreboard?.find(p => String(p.name || "").toLowerCase() === targetName);
+      if (!myPlayer) return;
+
+      const role = agentRoles[match.agent] || 'Unknown';
+      if (!stats[role]) {
+        stats[role] = { name: role, w: 0, l: 0, d: 0, k: 0, death: 0, a: 0, matches: 0 };
+      }
+
+      stats[role].matches += 1;
+      stats[role].k += match.raw_stats?.kills || 0;
+      stats[role].death += match.raw_stats?.deaths || 0;
+      stats[role].a += match.raw_stats?.assists || 0;
+
+      const myTeam = myPlayer.team;
+      const redScore = match.teams?.red || 0;
+      const blueScore = match.teams?.blue || 0;
+
+      if (redScore === blueScore) stats[role].d += 1;
+      else if (redScore > blueScore && myTeam === 'Red') stats[role].w += 1;
+      else if (blueScore > redScore && myTeam === 'Blue') stats[role].w += 1;
+      else stats[role].l += 1;
+    });
+
+    return Object.values(stats).sort((a, b) => b.matches - a.matches);
+  }
+
   const getAgentStats = () => {
     if (displayedMatches.length === 0) return [];
     
@@ -163,7 +199,6 @@ function App() {
     const targetName = searchQuery.split('#')[0].toLowerCase();
 
     displayedMatches.forEach(match => {
-      // 🔥 3. แก้ไขจุดนี้: ป้องกัน p.name เป็น Null
       const myPlayer = match.scoreboard?.find(p => String(p.name || "").toLowerCase() === targetName);
       if (!myPlayer) return;
 
@@ -661,7 +696,6 @@ function App() {
           <div className="bg-[#0f1923] border border-gray-700 rounded-xl max-w-[1400px] w-[95vw] max-h-[96vh] overflow-y-auto p-6 md:p-8 shadow-2xl relative flex flex-col [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" onClick={(e) => e.stopPropagation()}>
             <button onClick={() => setSelectedMatch(null)} className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors font-bold text-2xl z-10">✕</button>
 
-            {/* 🔥 4. แก้ไขจุดนี้: ป้องกัน selectedMatch.mode เป็น Null แล้วทำให้ .toLowerCase() พัง */}
             {['competitive', 'unrated'].includes(String(selectedMatch.mode || "").toLowerCase()) ? (
               <>
                 <div className="flex flex-col sm:flex-row items-center justify-between border-b border-gray-800 pb-5 mb-5 gap-4 px-2 mt-2">
