@@ -11,7 +11,7 @@ const VALORANT_MODES = [
 ];
 
 function App() {
-  const [searchQuery, setSearchQuery] = useState("") 
+  const [searchQuery, setSearchQuery] = useState("Raven#x10") 
   const [playerData, setPlayerData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState(null)
@@ -97,54 +97,32 @@ function App() {
   );
 
   const getRoundIcon = (endType) => {
-    // ปรับขนาดให้พอดีและแสดงผลคมชัดทุกอุปกรณ์
-    const iconClass = "w-5 h-5 md:w-6 md:h-6";
+    // ใช้ strokeWidth="1.5" เพื่อให้เส้นดูบางและคลีนเหมือน Official UI
+    const iconClass = "w-5 h-5 md:w-6 md:h-6 drop-shadow-sm";
     
     switch(endType) {
       case 'Eliminated': 
-        // สัญลักษณ์การจัดการศัตรู (รูปกากบาท)
+        // สัญลักษณ์จัดการศัตรู (วงกลม + กากบาทด้านใน)
         return (
-          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="8"></circle>
-            <path d="M9 9l6 6M15 9l-6 6"></path>
+          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="9"></circle>
+            <path d="M8.5 8.5l7 7M15.5 8.5l-7 7"></path>
           </svg>
         );
       case 'Bomb defused': 
-        // สัญลักษณ์กู้ระเบิด (รูปคีม)
-        return (
-          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M14 2l-2 5-1 2-2 5 2 2 5-2 2-5-2-2-1-1z"></path>
-            <path d="M12 12l5 5"></path>
-          </svg>
-        );
       case 'Bomb detonated': 
-        // สัญลักษณ์ระเบิดทำงาน (รูปเป้าเล็ง/ระเบิด)
+        // สัญลักษณ์ Spike ทำงานหรือถูกกู้ (ลายเส้นทรงคริสตัล)
         return (
-          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="5"></circle>
-            <path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path>
+          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2.5L5.5 13l3.5 7.5 9-4.5 1.5-6.5-7.5-7z"></path>
           </svg>
         );
       case 'Time out': 
-        // สัญลักษณ์หมดเวลา (รูปนาฬิกาทราย)
-        return (
-          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M10 2h4M12 12l4 4M12 12l-4 4"></path>
-            <path d="M5 3v4l4 5-4 5v4h14v-4l-4-5 4-5V3z"></path>
-          </svg>
-        );
-      case 'Surrendered':
-        // สัญลักษณ์ยอมแพ้ (รูปธง)
-        return (
-          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4 2v20M4 4h12l-3 4 3 4H4"></path>
-          </svg>
-        );
       default: 
-        // สัญลักษณ์เริ่มต้นสำหรับรอบปกติ
+        // สัญลักษณ์หมดเวลา หรืออื่นๆ (วงกลมโปร่ง)
         return (
-          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="8"></circle>
+          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="9"></circle>
           </svg>
         );
     }
