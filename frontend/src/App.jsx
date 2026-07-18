@@ -226,7 +226,7 @@ function App() {
           </thead>
           <tbody className="divide-y divide-gray-800/40">
             {sortedTeam.map((player, idx) => {
-              const isMe = player.name.toLowerCase() === targetPlayerName.toLowerCase();
+              const isMe = String(player.name || "").toLowerCase() === String(targetPlayerName || "").toLowerCase();
               const kdColor = player.stats.kd >= 1 ? "text-green-400" : "text-red-400";
               const rawRank = player.rank || "Unranked";
               const rankKey = rawRank.toLowerCase().replace(/\s/g, '');
@@ -236,7 +236,7 @@ function App() {
                 <tr key={idx} className={`hover:bg-gray-800/40 transition-colors ${isMe ? 'bg-gray-800/60 border-l-4 border-yellow-500' : 'border-l-4 border-transparent'}`}>
                   <td className="py-2.5 px-4">
                     <div className="w-10 h-10 bg-gray-900 rounded border border-gray-700 p-0.5">
-                      {agentImages[player.agent] ? ( <img src={agentImages[player.agent]} alt={player.agent} className="w-full h-full object-contain" /> ) : ( <div className="w-full h-full flex items-center justify-center text-[10px] font-bold">{player.agent.substring(0,2)}</div> )}
+                      {agentImages[player.agent] ? ( <img src={agentImages[player.agent]} alt={player.agent} className="w-full h-full object-contain" /> ) : ( <div className="w-full h-full flex items-center justify-center text-[10px] font-bold">{String(player.agent || "UN").substring(0,2)}</div> )}
                     </div>
                   </td>
                   <td className="py-2.5 px-4 w-full">
@@ -292,7 +292,7 @@ function App() {
           </thead>
           <tbody className="divide-y divide-gray-800/40">
             {sortedData.map((player, idx) => {
-              const isMe = player.name.toLowerCase() === targetPlayerName.toLowerCase();
+              const isMe = String(player.name || "").toLowerCase() === String(targetPlayerName || "").toLowerCase();
               const kdColor = player.stats.kd >= 1 ? "text-green-400" : "text-red-400";
               const rawRank = player.rank || "Unranked";
               const rankKey = rawRank.toLowerCase().replace(/\s/g, '');
@@ -302,7 +302,7 @@ function App() {
                 <tr key={idx} className={`hover:bg-gray-800/40 transition-colors ${isMe ? 'bg-gray-800/60 border-l-4 border-yellow-500' : 'border-l-4 border-transparent'}`}>
                   <td className="py-2.5 px-4">
                     <div className="w-10 h-10 bg-gray-900 rounded border border-gray-700 p-0.5">
-                      {agentImages[player.agent] ? ( <img src={agentImages[player.agent]} alt={player.agent} className="w-full h-full object-contain" /> ) : ( <div className="w-full h-full flex items-center justify-center text-[10px] font-bold">{player.agent.substring(0,2)}</div> )}
+                      {agentImages[player.agent] ? ( <img src={agentImages[player.agent]} alt={player.agent} className="w-full h-full object-contain" /> ) : ( <div className="w-full h-full flex items-center justify-center text-[10px] font-bold">{String(player.agent || "UN").substring(0,2)}</div> )}
                     </div>
                   </td>
                   <td className="py-2.5 px-4 w-full">
@@ -403,11 +403,11 @@ function App() {
                     <span className="text-[10px] text-gray-500 font-bold mb-3 tracking-widest uppercase">ปัจจุบัน (Current)</span>
                     
                     <div className="h-14 flex items-center justify-center mb-3">
-                      {rankImages[playerData.rank.current.toLowerCase().replace(/\s/g, '')] || rankImages["unranked"] ? (
+                      {rankImages[String(playerData.rank.peak || "unranked").toLowerCase().replace(/\s/g, '')] || rankImages["unranked"] ? (
                         <img 
-                          src={rankImages[playerData.rank.current.toLowerCase().replace(/\s/g, '')] || rankImages["unranked"]} 
-                          alt={playerData.rank.current} 
-                          className="w-16 h-16 object-contain drop-shadow-[0_0_10px_rgba(255,255,255,0.15)] scale-110" 
+                          src={rankImages[String(playerData.rank.peak || "unranked").toLowerCase().replace(/\s/g, '')] || rankImages["unranked"]} 
+                          alt={playerData.rank.peak || "Unranked"} 
+                          className="w-16 h-16 object-contain drop-shadow-[0_0_10px_rgba(255,200,87,0.2)] scale-110" 
                         />
                       ) : (
                         <span className="text-xs text-gray-500">No Icon</span>
@@ -553,7 +553,7 @@ function App() {
                       <div key={match.match_id || index} onClick={() => setSelectedMatch(match)} className="bg-gray-900 border border-gray-800/80 p-4 sm:p-5 rounded-2xl grid grid-cols-1 sm:grid-cols-12 items-center gap-4 shadow-lg hover:border-red-500/50 hover:bg-gray-900/80 cursor-pointer transition-all tabular-nums">
                         <div className="col-span-1 sm:col-span-5 flex items-center gap-4 sm:gap-5 w-full">
                           <div className="flex flex-col items-center justify-center bg-gray-950/80 p-2 rounded-xl border border-gray-800 min-w-[80px]">
-                            {agentImages[match.agent] ? ( <img src={agentImages[match.agent]} alt={match.agent} className="w-12 h-12 object-contain" /> ) : ( <div className="w-12 h-12 flex items-center justify-center bg-gray-800 rounded-full text-xs font-bold border border-gray-700">{match.agent.substring(0, 2).toUpperCase()}</div> )}
+                            {agentImages[match.agent] ? ( <img src={agentImages[match.agent]} alt={match.agent} className="w-12 h-12 object-contain" /> ) : ( <div className="w-12 h-12 flex items-center justify-center bg-gray-800 rounded-full text-xs font-bold border border-gray-700">{String(match.agent || "UN").substring(0, 2).toUpperCase()}</div> )}
                             <span className="font-extrabold text-[11px] text-gray-400 mt-1 uppercase tracking-wider">{match.agent}</span>
                           </div>
                           <div className="overflow-hidden">
