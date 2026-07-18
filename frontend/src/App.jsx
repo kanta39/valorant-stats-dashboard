@@ -173,29 +173,27 @@ function App() {
       const myPlayer = match.scoreboard?.find(p => p.name.toLowerCase() === targetName);
       if (!myPlayer) return;
 
-      const agent = match.agent;
+      // 🔥 ใส่ || "Unknown" เพื่อดักกรณีที่ API ไม่ส่งชื่อตัวละครมาให้
+      const agent = match.agent || "Unknown"; 
       if (!stats[agent]) {
         stats[agent] = { name: agent, w: 0, l: 0, d: 0, k: 0, death: 0, a: 0, matches: 0 };
       }
 
-      // เก็บสถิติสะสมของตัวละครนั้นๆ
       stats[agent].matches += 1;
-      stats[agent].k += match.raw_stats.kills;
-      stats[agent].death += match.raw_stats.deaths;
-      stats[agent].a += match.raw_stats.assists;
+      stats[agent].k += match.raw_stats?.kills || 0;
+      stats[agent].death += match.raw_stats?.deaths || 0;
+      stats[agent].a += match.raw_stats?.assists || 0;
 
       const myTeam = myPlayer.team;
-      const redScore = match.teams.red;
-      const blueScore = match.teams.blue;
+      const redScore = match.teams?.red || 0;
+      const blueScore = match.teams?.blue || 0;
 
-      // เช็คผลแพ้ชนะ
       if (redScore === blueScore) stats[agent].d += 1;
       else if (redScore > blueScore && myTeam === 'Red') stats[agent].w += 1;
       else if (blueScore > redScore && myTeam === 'Blue') stats[agent].w += 1;
       else stats[agent].l += 1;
     });
 
-    // จัดเรียงจากตัวที่เล่นบ่อยสุดไปน้อยสุด
     return Object.values(stats).sort((a, b) => b.matches - a.matches);
   }
 
@@ -621,7 +619,9 @@ function App() {
                               {agentImages[agent.name] ? (
                                 <img src={agentImages[agent.name]} alt={agent.name} className="w-full h-full object-contain drop-shadow-md" />
                               ) : (
-                                <div className="w-full h-full flex items-center justify-center font-bold text-gray-600">{agent.name.substring(0,2)}</div>
+                                <div className="w-full h-full flex items-center justify-center font-bold text-gray-600">
+                                  {String(agent.name || "UN").substring(0,2).toUpperCase()}
+                                </div>
                               )}
                             </div>
                             <div>
