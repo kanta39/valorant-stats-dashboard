@@ -72,7 +72,6 @@ function App() {
     if (isNewSearch) { currentMode = "All"; setFilterMode("All"); setActiveTab("overview"); }
 
     try {
-      //  ของใหม่ (ยิงเข้าเซิร์ฟเวอร์คลาวด์ออนไลน์)
       const response = await fetch(`https://val-stats-api.onrender.com/api/matches/${riotName.trim()}/${riotTag.trim()}?mode=${currentMode}`)
       const data = await response.json()
       if (data.error) { setErrorMsg(data.error); if (isNewSearch) setPlayerData(null); } 
@@ -90,19 +89,17 @@ function App() {
 
   const hasData = playerData && playerData.match_history && !errorMsg;
 
+  // 🔥 1. แก้ไขจุดนี้: ป้องกัน match.mode เป็น Null แล้วทำให้ .toLowerCase() พัง
   const displayedMatches = !hasData ? [] : (
     filterMode === "All" 
       ? playerData.match_history 
-      : playerData.match_history.filter(m => m.mode.toLowerCase().replace(/\s/g, '') === filterMode.toLowerCase().replace(/\s/g, ''))
+      : playerData.match_history.filter(m => String(m.mode || "unknown").toLowerCase().replace(/\s/g, '') === filterMode.toLowerCase().replace(/\s/g, ''))
   );
 
   const getRoundIcon = (endType) => {
-    // ใช้ strokeWidth="1.5" เพื่อให้เส้นดูบางและคลีนเหมือน Official UI
     const iconClass = "w-5 h-5 md:w-6 md:h-6 drop-shadow-sm";
-    
     switch(endType) {
       case 'Eliminated': 
-        // สัญลักษณ์จัดการศัตรู (วงกลม + กากบาทด้านใน)
         return (
           <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="9"></circle>
@@ -111,7 +108,6 @@ function App() {
         );
       case 'Bomb defused': 
       case 'Bomb detonated': 
-        // สัญลักษณ์ Spike ทำงานหรือถูกกู้ (ลายเส้นทรงคริสตัล)
         return (
           <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 2.5L5.5 13l3.5 7.5 9-4.5 1.5-6.5-7.5-7z"></path>
@@ -119,7 +115,6 @@ function App() {
         );
       case 'Time out': 
       default: 
-        // สัญลักษณ์หมดเวลา หรืออื่นๆ (วงกลมโปร่ง)
         return (
           <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="9"></circle>
@@ -127,27 +122,25 @@ function App() {
         );
     }
   }
+
   const getOverallStats = () => {
     if (displayedMatches.length === 0) return null;
     
-    let totalKills = 0;
-    let totalDeaths = 0;
-    let totalAssists = 0;
-    let wins = 0;
-    let losses = 0;
-    let draws = 0;
+    let totalKills = 0; let totalDeaths = 0; let totalAssists = 0;
+    let wins = 0; let losses = 0; let draws = 0;
     const targetName = searchQuery.split('#')[0].toLowerCase();
 
     displayedMatches.forEach(match => {
-      totalKills += match.raw_stats.kills;
-      totalDeaths += match.raw_stats.deaths;
-      totalAssists += match.raw_stats.assists;
+      totalKills += match.raw_stats?.kills || 0;
+      totalDeaths += match.raw_stats?.deaths || 0;
+      totalAssists += match.raw_stats?.assists || 0;
 
+      // 🔥 2. แก้ไขจุดนี้: ป้องกัน p.name เป็น Null
       const myPlayer = match.scoreboard?.find(p => String(p.name || "").toLowerCase() === targetName);
       if (myPlayer) {
         const myTeam = myPlayer.team;
-        const redScore = match.teams.red;
-        const blueScore = match.teams.blue;
+        const redScore = match.teams?.red || 0;
+        const blueScore = match.teams?.blue || 0;
 
         if (redScore === blueScore) draws += 1;
         else if (redScore > blueScore && myTeam === 'Red') wins += 1;
@@ -170,10 +163,10 @@ function App() {
     const targetName = searchQuery.split('#')[0].toLowerCase();
 
     displayedMatches.forEach(match => {
+      // 🔥 3. แก้ไขจุดนี้: ป้องกัน p.name เป็น Null
       const myPlayer = match.scoreboard?.find(p => String(p.name || "").toLowerCase() === targetName);
       if (!myPlayer) return;
 
-      // 🔥 ใส่ || "Unknown" เพื่อดักกรณีที่ API ไม่ส่งชื่อตัวละครมาให้
       const agent = match.agent || "Unknown"; 
       if (!stats[agent]) {
         stats[agent] = { name: agent, w: 0, l: 0, d: 0, k: 0, death: 0, a: 0, matches: 0 };
@@ -197,15 +190,14 @@ function App() {
     return Object.values(stats).sort((a, b) => b.matches - a.matches);
   }
 
-  // เรียกใช้ฟังก์ชันที่เพิ่งสร้าง ไว้คู่กับบรรทัดที่เรียก overallStats คับ
   const overallStats = getOverallStats();
   const roleStatsArray = getRoleStats();
-  const agentStatsArray = getAgentStats(); // 👈 เพิ่มบรรทัดนี้เข้าไป
+  const agentStatsArray = getAgentStats();
 
   const renderTeamTable = (teamName, teamData, teamColorClass, bgColorClass, targetPlayerName, matchMode) => {
     if (!teamData || teamData.length === 0) return null;
-    const sortedTeam = [...teamData].sort((a, b) => b.stats.acs - a.stats.acs);
-    const showRank = matchMode.toLowerCase() === 'competitive';
+    const sortedTeam = [...teamData].sort((a, b) => (b.stats?.acs || 0) - (a.stats?.acs || 0));
+    const showRank = String(matchMode || "").toLowerCase() === 'competitive';
 
     return (
       <div className="w-full overflow-x-auto mb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
@@ -227,9 +219,9 @@ function App() {
           <tbody className="divide-y divide-gray-800/40">
             {sortedTeam.map((player, idx) => {
               const isMe = String(player.name || "").toLowerCase() === String(targetPlayerName || "").toLowerCase();
-              const kdColor = player.stats.kd >= 1 ? "text-green-400" : "text-red-400";
+              const kdColor = (player.stats?.kd || 0) >= 1 ? "text-green-400" : "text-red-400";
               const rawRank = player.rank || "Unranked";
-              const rankKey = rawRank.toLowerCase().replace(/\s/g, '');
+              const rankKey = String(rawRank).toLowerCase().replace(/\s/g, '');
               const rankIcon = rankImages[rankKey] || rankImages["unranked"];
               
               return (
@@ -241,8 +233,8 @@ function App() {
                   </td>
                   <td className="py-2.5 px-4 w-full">
                     <div className="flex items-baseline gap-2 overflow-hidden">
-                      <span className={`font-bold text-base md:text-lg tracking-wide truncate ${isMe ? 'text-yellow-400' : 'text-gray-100'}`}>{player.name}</span>
-                      <span className="text-xs text-gray-500">#{player.tag}</span>
+                      <span className={`font-bold text-base md:text-lg tracking-wide truncate ${isMe ? 'text-yellow-400' : 'text-gray-100'}`}>{player.name || "Unknown"}</span>
+                      <span className="text-xs text-gray-500">#{player.tag || "000"}</span>
                     </div>
                   </td>
                   {showRank && (
@@ -252,13 +244,13 @@ function App() {
                       </div>
                     </td>
                   )}
-                  <td className="py-2.5 px-4 text-center font-bold text-gray-200 text-base">{player.stats.acs}</td>
-                  <td className="py-2.5 px-4 text-center font-black text-green-400/90 text-base">{player.stats.kills}</td>
-                  <td className="py-2.5 px-4 text-center font-black text-red-400/90 text-base">{player.stats.deaths}</td>
-                  <td className="py-2.5 px-4 text-center font-black text-blue-400/90 text-base">{player.stats.assists}</td>
-                  <td className={`py-2.5 px-4 text-center font-bold text-base ${kdColor}`}>{Number(player.stats.kd).toFixed(2)}</td>
-                  <td className="py-2.5 px-4 text-center font-bold text-gray-300 text-base">{player.stats.adr}</td>
-                  <td className="py-2.5 px-4 text-center font-bold text-gray-300 text-base">{player.stats.hs_percent}%</td>
+                  <td className="py-2.5 px-4 text-center font-bold text-gray-200 text-base">{player.stats?.acs || 0}</td>
+                  <td className="py-2.5 px-4 text-center font-black text-green-400/90 text-base">{player.stats?.kills || 0}</td>
+                  <td className="py-2.5 px-4 text-center font-black text-red-400/90 text-base">{player.stats?.deaths || 0}</td>
+                  <td className="py-2.5 px-4 text-center font-black text-blue-400/90 text-base">{player.stats?.assists || 0}</td>
+                  <td className={`py-2.5 px-4 text-center font-bold text-base ${kdColor}`}>{Number(player.stats?.kd || 0).toFixed(2)}</td>
+                  <td className="py-2.5 px-4 text-center font-bold text-gray-300 text-base">{player.stats?.adr || 0}</td>
+                  <td className="py-2.5 px-4 text-center font-bold text-gray-300 text-base">{player.stats?.hs_percent || 0}%</td>
                 </tr>
               )
             })}
@@ -270,8 +262,8 @@ function App() {
 
   const renderUnifiedTable = (scoreboardData, targetPlayerName, matchMode) => {
     if (!scoreboardData || scoreboardData.length === 0) return null;
-    const sortedData = [...scoreboardData].sort((a, b) => b.stats.acs - a.stats.acs);
-    const showRank = matchMode.toLowerCase() === 'competitive';
+    const sortedData = [...scoreboardData].sort((a, b) => (b.stats?.acs || 0) - (a.stats?.acs || 0));
+    const showRank = String(matchMode || "").toLowerCase() === 'competitive';
 
     return (
       <div className="w-full overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
@@ -293,9 +285,9 @@ function App() {
           <tbody className="divide-y divide-gray-800/40">
             {sortedData.map((player, idx) => {
               const isMe = String(player.name || "").toLowerCase() === String(targetPlayerName || "").toLowerCase();
-              const kdColor = player.stats.kd >= 1 ? "text-green-400" : "text-red-400";
+              const kdColor = (player.stats?.kd || 0) >= 1 ? "text-green-400" : "text-red-400";
               const rawRank = player.rank || "Unranked";
-              const rankKey = rawRank.toLowerCase().replace(/\s/g, '');
+              const rankKey = String(rawRank).toLowerCase().replace(/\s/g, '');
               const rankIcon = rankImages[rankKey] || rankImages["unranked"];
 
               return (
@@ -307,8 +299,8 @@ function App() {
                   </td>
                   <td className="py-2.5 px-4 w-full">
                     <div className="flex items-baseline gap-2 overflow-hidden">
-                      <span className={`font-bold text-base md:text-lg tracking-wide truncate ${isMe ? 'text-yellow-400' : 'text-gray-100'}`}>{player.name}</span>
-                      <span className="text-xs text-gray-600">#{player.tag}</span>
+                      <span className={`font-bold text-base md:text-lg tracking-wide truncate ${isMe ? 'text-yellow-400' : 'text-gray-100'}`}>{player.name || "Unknown"}</span>
+                      <span className="text-xs text-gray-600">#{player.tag || "000"}</span>
                     </div>
                   </td>
                   {showRank && (
@@ -318,13 +310,13 @@ function App() {
                       </div>
                     </td>
                   )}
-                  <td className="py-2.5 px-4 text-center font-bold text-gray-200 text-base">{player.stats.acs}</td>
-                  <td className="py-2.5 px-4 text-center font-black text-green-400/90 text-base">{player.stats.kills}</td>
-                  <td className="py-2.5 px-4 text-center font-black text-red-400/90 text-base">{player.stats.deaths}</td>
-                  <td className="py-2.5 px-4 text-center font-black text-blue-400/90 text-base">{player.stats.assists}</td>
-                  <td className={`py-2.5 px-4 text-center font-bold text-base ${kdColor}`}>{Number(player.stats.kd).toFixed(2)}</td>
-                  <td className="py-2.5 px-4 text-center font-bold text-gray-300 text-base">{player.stats.adr}</td>
-                  <td className="py-2.5 px-4 text-center font-bold text-gray-300 text-base">{player.stats.hs_percent}%</td>
+                  <td className="py-2.5 px-4 text-center font-bold text-gray-200 text-base">{player.stats?.acs || 0}</td>
+                  <td className="py-2.5 px-4 text-center font-black text-green-400/90 text-base">{player.stats?.kills || 0}</td>
+                  <td className="py-2.5 px-4 text-center font-black text-red-400/90 text-base">{player.stats?.deaths || 0}</td>
+                  <td className="py-2.5 px-4 text-center font-black text-blue-400/90 text-base">{player.stats?.assists || 0}</td>
+                  <td className={`py-2.5 px-4 text-center font-bold text-base ${kdColor}`}>{Number(player.stats?.kd || 0).toFixed(2)}</td>
+                  <td className="py-2.5 px-4 text-center font-bold text-gray-300 text-base">{player.stats?.adr || 0}</td>
+                  <td className="py-2.5 px-4 text-center font-bold text-gray-300 text-base">{player.stats?.hs_percent || 0}%</td>
                 </tr>
               )
             })}
@@ -384,13 +376,11 @@ function App() {
       {hasData && (
         <div className="flex-1 w-full max-w-7xl mx-auto py-8 px-5 flex flex-col lg:flex-row gap-6 lg:gap-8 items-start">
           
-          {/* 📊 แผงด้านซ้าย (Sidebar) - ลบคำสั่งล็อกตำแหน่งออกแล้ว เพื่อให้เลื่อนตามหน้าเว็บหลักพร้อมกันอย่างเป็นธรรมชาติ 📊 */}
+          {/* 📊 แผงด้านซ้าย (Sidebar) */}
           <div className="w-full lg:w-[320px] xl:w-[360px] flex-shrink-0 flex flex-col gap-5">
-            {/* 🌟 RANK CARD 🌟 */}
             {/* 🌟 RANK CARD 🌟 */}
             {playerData.rank && (
               <div className="bg-[#111823] border border-gray-800/80 rounded-2xl p-5 shadow-xl animate-fade-in relative overflow-hidden mb-5">
-                {/* แสงตกแต่งมุมขวาบนให้ดูพรีเมียม */}
                 <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-red-500/10 to-transparent rounded-bl-full"></div>
                 
                 <h3 className="text-white text-base font-black tracking-widest uppercase mb-4 flex items-center gap-2 relative z-10">
@@ -399,10 +389,8 @@ function App() {
                 </h3>
                 
                 <div className="flex items-center justify-between relative z-10 mt-2">
-                  {/* แรงค์ปัจจุบัน */}
                   <div className="flex flex-col items-center w-1/2 border-r border-gray-800 px-2">
                     <span className="text-[10px] text-gray-500 font-bold mb-3 tracking-widest uppercase">ปัจจุบัน (Current)</span>
-                    
                     <div className="h-14 flex items-center justify-center mb-3">
                       {rankImages[String(playerData.rank.current || "unranked").toLowerCase().replace(/\s/g, '')] || rankImages["unranked"] ? (
                         <img 
@@ -414,16 +402,13 @@ function App() {
                         <span className="text-xs text-gray-500">No Icon</span>
                       )}
                     </div>
-                    
                     <span className="text-sm font-black text-white uppercase text-center leading-tight drop-shadow-md">
                       {playerData.rank.current || "Unranked"}
                     </span>
                   </div>
                   
-                  {/* แรงค์สูงสุด */}
                   <div className="flex flex-col items-center w-1/2 px-2">
                     <span className="text-[10px] text-gray-500 font-bold mb-3 tracking-widest uppercase">สูงสุด (Peak)</span>
-                    
                     <div className="h-14 flex items-center justify-center mb-3">
                       {rankImages[String(playerData.rank.peak || "unranked").toLowerCase().replace(/\s/g, '')] || rankImages["unranked"] ? (
                         <img 
@@ -435,7 +420,6 @@ function App() {
                         <span className="text-xs text-gray-500">No Icon</span>
                       )}
                     </div>
-
                     <span className="text-sm font-black text-[#ffc857] uppercase text-center leading-tight drop-shadow-md">
                       {playerData.rank.peak || "Unranked"}
                     </span>
@@ -443,6 +427,7 @@ function App() {
                 </div>
               </div>
             )}
+            
             {/* OVERALL SUMMARY */}
             {overallStats && (
               <div className="bg-[#111823] border border-gray-800/80 rounded-2xl p-5 shadow-xl animate-fade-in">
@@ -472,7 +457,6 @@ function App() {
               <h3 className="text-white text-base font-black tracking-widest uppercase mb-4 flex items-center gap-2">
                 <span className="text-red-500">🎯</span> ROLES PERFORMANCE
               </h3>
-              
               <div className="flex flex-col gap-3">
                 {roleStatsArray.length > 0 ? roleStatsArray.map((role, idx) => {
                   const winRate = role.matches > 0 ? ((role.w / role.matches) * 100) : 0;
@@ -500,7 +484,7 @@ function App() {
                           {roleIcons[role.name] ? (
                             <img src={roleIcons[role.name]} className="w-5 h-5 opacity-90" alt={role.name} />
                           ) : (
-                            <span className="text-[10px] text-gray-500 font-bold">{role.name.substring(0,2)}</span>
+                            <span className="text-[10px] text-gray-500 font-bold">{String(role.name || "UN").substring(0,2)}</span>
                           )}
                         </div>
                         <div className="flex flex-col">
@@ -509,7 +493,6 @@ function App() {
                           <p className="text-[10px] text-gray-500 font-medium mt-0.5">{role.w}W - {role.l}L</p>
                         </div>
                       </div>
-
                       <div className="text-right flex flex-col justify-center">
                         <p className="text-white font-black text-sm">KDA {kda}</p>
                         <p className="text-[10px] font-mono text-blue-400 mt-1">
@@ -523,7 +506,6 @@ function App() {
                 )}
               </div>
             </div>
-
           </div>
 
           {/* 📊 แผงด้านขวา (เนื้อหาหลัก) */}
@@ -555,12 +537,12 @@ function App() {
                         <div className="col-span-1 sm:col-span-5 flex items-center gap-4 sm:gap-5 w-full">
                           <div className="flex flex-col items-center justify-center bg-gray-950/80 p-2 rounded-xl border border-gray-800 min-w-[80px]">
                             {agentImages[match.agent] ? ( <img src={agentImages[match.agent]} alt={match.agent} className="w-12 h-12 object-contain" /> ) : ( <div className="w-12 h-12 flex items-center justify-center bg-gray-800 rounded-full text-xs font-bold border border-gray-700">{String(match.agent || "UN").substring(0, 2).toUpperCase()}</div> )}
-                            <span className="font-extrabold text-[11px] text-gray-400 mt-1 uppercase tracking-wider">{match.agent}</span>
+                            <span className="font-extrabold text-[11px] text-gray-400 mt-1 uppercase tracking-wider">{match.agent || "Unknown"}</span>
                           </div>
                           <div className="overflow-hidden">
-                            <h3 className="font-black text-white text-lg tracking-wide truncate">{match.map}</h3>
+                            <h3 className="font-black text-white text-lg tracking-wide truncate">{match.map || "Unknown Map"}</h3>
                             <div className="flex items-center gap-2 mt-1">
-                              <span className="inline-block bg-gray-800 text-gray-300 text-[10px] font-bold px-2 py-0.5 rounded-md border border-gray-700">{match.mode}</span>
+                              <span className="inline-block bg-gray-800 text-gray-300 text-[10px] font-bold px-2 py-0.5 rounded-md border border-gray-700">{match.mode || "Unknown Mode"}</span>
                             </div>
                           </div>
                         </div>
@@ -568,22 +550,22 @@ function App() {
                         <div className="col-span-1 sm:col-span-4 flex flex-col items-center justify-center bg-gray-950/50 sm:bg-transparent p-3 sm:p-0 rounded-lg">
                           <p className="text-[10px] text-gray-500 font-bold mb-1 tracking-widest uppercase">K / D / A</p>
                           <div className="font-black text-lg text-gray-200 flex items-center justify-center">
-                            <span className="text-green-400 w-8 text-right">{match.raw_stats.kills}</span>
+                            <span className="text-green-400 w-8 text-right">{match.raw_stats?.kills || 0}</span>
                             <span className="text-gray-700 mx-2">/</span>
-                            <span className="text-red-500 w-8 text-center">{match.raw_stats.deaths}</span>
+                            <span className="text-red-500 w-8 text-center">{match.raw_stats?.deaths || 0}</span>
                             <span className="text-gray-700 mx-2">/</span>
-                            <span className="text-blue-400 w-8 text-left">{match.raw_stats.assists}</span>
+                            <span className="text-blue-400 w-8 text-left">{match.raw_stats?.assists || 0}</span>
                           </div>
-                          <p className="text-[11px] text-gray-400 mt-1">Ratio: <span className="text-gray-200 font-bold">{Number(match.analysis.kda_ratio).toFixed(2)}</span></p>
+                          <p className="text-[11px] text-gray-400 mt-1">Ratio: <span className="text-gray-200 font-bold">{Number(match.analysis?.kda_ratio || 0).toFixed(2)}</span></p>
                         </div>
 
                         <div className="col-span-1 sm:col-span-3 flex justify-between sm:justify-end items-center gap-5 w-full">
                           <div className="text-left sm:text-right">
                             <p className="text-[10px] text-gray-500 font-bold uppercase mb-1 tracking-widest">Score</p>
-                            <p className="text-sm font-black text-gray-200 w-16">{match.analysis.performance_score}<span className="text-gray-600 text-[10px]">/100</span></p>
+                            <p className="text-sm font-black text-gray-200 w-16">{match.analysis?.performance_score || 0}<span className="text-gray-600 text-[10px]">/100</span></p>
                           </div>
                           <div className="bg-gray-950 w-14 h-14 rounded-2xl flex items-center justify-center border border-gray-700 shadow-inner flex-shrink-0">
-                            <span className="text-2xl font-black text-yellow-400 drop-shadow-md">{match.analysis.grade.split(" ")[0]}</span>
+                            <span className="text-2xl font-black text-yellow-400 drop-shadow-md">{String(match.analysis?.grade || "N/A").split(" ")[0]}</span>
                           </div>
                         </div>
                       </div>
@@ -610,7 +592,6 @@ function App() {
                       
                       return (
                         <div key={idx} className="bg-gray-900 border border-gray-800 rounded-2xl p-5 hover:border-red-500/50 transition-colors relative overflow-hidden group shadow-lg">
-                          {/* เอฟเฟกต์ลายน้ำรูปตัวละครด้านหลัง */}
                           <div className="absolute -right-6 -top-6 opacity-5 group-hover:opacity-20 transition-opacity">
                             {agentImages[agent.name] && <img src={agentImages[agent.name]} alt="bg" className="w-32 h-32 object-cover scale-150" />}
                           </div>
@@ -664,7 +645,8 @@ function App() {
         </div>
         
       )}
-      {/* 📜 FOOTER - ประกาศลิขสิทธิ์ตามกฎของ Riot Games 📜 */}
+
+      {/* 📜 FOOTER */}
       {hasData && (
         <footer className="w-full bg-gray-950 border-t border-gray-900 py-6 mt-8 text-center px-4">
           <p className="text-gray-500 text-[10px] md:text-xs max-w-4xl mx-auto leading-relaxed">
@@ -679,34 +661,32 @@ function App() {
           <div className="bg-[#0f1923] border border-gray-700 rounded-xl max-w-[1400px] w-[95vw] max-h-[96vh] overflow-y-auto p-6 md:p-8 shadow-2xl relative flex flex-col [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" onClick={(e) => e.stopPropagation()}>
             <button onClick={() => setSelectedMatch(null)} className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors font-bold text-2xl z-10">✕</button>
 
-            {['competitive', 'unrated'].includes(selectedMatch.mode.toLowerCase()) ? (
+            {/* 🔥 4. แก้ไขจุดนี้: ป้องกัน selectedMatch.mode เป็น Null แล้วทำให้ .toLowerCase() พัง */}
+            {['competitive', 'unrated'].includes(String(selectedMatch.mode || "").toLowerCase()) ? (
               <>
                 <div className="flex flex-col sm:flex-row items-center justify-between border-b border-gray-800 pb-5 mb-5 gap-4 px-2 mt-2">
                   <div className="flex items-center gap-3">
                     <div className="flex flex-col">
-                      <h2 className="text-3xl sm:text-4xl font-black text-white uppercase tracking-widest leading-tight">{selectedMatch.map}</h2>
-                      <p className="text-sm md:text-base text-gray-400 font-medium">{selectedMatch.mode} • {selectedMatch.rounds_played} Rounds Played</p>
+                      <h2 className="text-3xl sm:text-4xl font-black text-white uppercase tracking-widest leading-tight">{selectedMatch.map || "Unknown Map"}</h2>
+                      <p className="text-sm md:text-base text-gray-400 font-medium">{selectedMatch.mode || "Unknown Mode"} • {selectedMatch.rounds_played || 0} Rounds Played</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-4 bg-gray-900/60 px-6 py-2.5 rounded-lg border border-gray-800/80">
                     <span className="text-sm font-bold text-red-500/80 mr-1 uppercase">Team A</span>
-                    <span className="text-3xl font-black text-red-400 tabular-nums">{selectedMatch.teams.red}</span>
+                    <span className="text-3xl font-black text-red-400 tabular-nums">{selectedMatch.teams?.red || 0}</span>
                     <span className="text-xl font-bold text-gray-600 mx-2">:</span>
-                    <span className="text-3xl font-black text-blue-400 tabular-nums">{selectedMatch.teams.blue}</span>
+                    <span className="text-3xl font-black text-blue-400 tabular-nums">{selectedMatch.teams?.blue || 0}</span>
                     <span className="text-sm font-bold text-blue-500/80 ml-1 uppercase">Team B</span>
                   </div>
                 </div>
 
-                {/* 🌟 อัปเกรด Timeline ให้เหมือนตัวเกมเป๊ะๆ (ไม่มีกรอบ, เป็นจุดเล็กๆ) 🌟 */}
                 {selectedMatch.round_history && selectedMatch.round_history.length > 0 && (
                   <div className="w-full bg-[#111823] border border-gray-800/80 rounded-xl p-4 sm:p-5 mb-6">
                     <div className="flex flex-col gap-3">
-                      
-                      {/* Team B Row (ฝั่งสีฟ้า) */}
                       <div className="flex items-center w-full">
                         <div className="w-24 md:w-28 text-sm font-bold text-blue-400 flex justify-between items-center pr-4 border-r border-gray-700">
                           <span className="uppercase tracking-wide">Team B</span>
-                          <span className="text-2xl font-black tabular-nums">{selectedMatch.teams.blue}</span>
+                          <span className="text-2xl font-black tabular-nums">{selectedMatch.teams?.blue || 0}</span>
                         </div>
                         <div className="flex flex-1 gap-1.5 md:gap-2 ml-4">
                           {selectedMatch.round_history.map(r => (
@@ -719,11 +699,10 @@ function App() {
                         </div>
                       </div>
 
-                      {/* Team A Row (ฝั่งสีแดง) */}
                       <div className="flex items-center w-full">
                         <div className="w-24 md:w-28 text-sm font-bold text-red-400 flex justify-between items-center pr-4 border-r border-gray-700">
                           <span className="uppercase tracking-wide">Team A</span>
-                          <span className="text-2xl font-black tabular-nums">{selectedMatch.teams.red}</span>
+                          <span className="text-2xl font-black tabular-nums">{selectedMatch.teams?.red || 0}</span>
                         </div>
                         <div className="flex flex-1 gap-1.5 md:gap-2 ml-4">
                           {selectedMatch.round_history.map(r => (
@@ -736,7 +715,6 @@ function App() {
                         </div>
                       </div>
 
-                      {/* Round Numbers Row (ตัวเลขบอกรอบด้านล่าง) */}
                       <div className="flex items-center mt-1 w-full">
                         <div className="w-24 md:w-28 pr-4 border-r border-transparent"></div>
                         <div className="flex flex-1 gap-1.5 md:gap-2 ml-4">
@@ -747,7 +725,6 @@ function App() {
                           ))}
                         </div>
                       </div>
-                      
                     </div>
                   </div>
                 )}
@@ -762,13 +739,13 @@ function App() {
                 <div className="flex flex-col sm:flex-row items-center justify-between border-b border-gray-800 pb-5 mb-5 gap-4 px-2 mt-2">
                   <div className="flex items-center gap-3">
                     <div className="flex flex-col">
-                      <h2 className="text-3xl sm:text-4xl font-black text-white uppercase tracking-widest leading-tight">{selectedMatch.map}</h2>
-                      <p className="text-sm md:text-base text-gray-400 font-medium">{selectedMatch.mode}</p>
+                      <h2 className="text-3xl sm:text-4xl font-black text-white uppercase tracking-widest leading-tight">{selectedMatch.map || "Unknown Map"}</h2>
+                      <p className="text-sm md:text-base text-gray-400 font-medium">{selectedMatch.mode || "Unknown Mode"}</p>
                     </div>
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Match ID</p>
-                    <p className="text-sm md:text-base font-mono text-gray-400">{selectedMatch.match_id.split('-')[0]}</p>
+                    <p className="text-sm md:text-base font-mono text-gray-400">{String(selectedMatch.match_id || "N/A").split('-')[0]}</p>
                   </div>
                 </div>
 
