@@ -12,7 +12,6 @@ const VALORANT_MODES = [
 
 function App() {
   const [searchQuery, setSearchQuery] = useState("Raven#x10") 
-  // 🔥 1. เพิ่มตัวแปรใหม่สำหรับ "ล็อก" ชื่อที่ใช้ค้นหาสำเร็จล่าสุด
   const [activeSearchQuery, setActiveSearchQuery] = useState("Raven#x10") 
   
   const [playerData, setPlayerData] = useState(null)
@@ -27,6 +26,9 @@ function App() {
   const [roleIcons, setRoleIcons] = useState({})
   
   const [selectedMatch, setSelectedMatch] = useState(null)
+
+  // 🔥 1. เพิ่ม State สำหรับเก็บสถานะการเรียงข้อมูล (Sorting)
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'default' });
 
   useEffect(() => {
     fetch('https://valorant-api.com/v1/agents?isPlayableCharacter=true')
@@ -67,7 +69,6 @@ function App() {
   }, []);
 
   const fetchStats = async (modeToFetch = filterMode, isNewSearch = false) => {
-    // 🔥 2. ถ้าเป็นการค้นหาใหม่ให้ใช้ชื่อในกล่อง ถ้าแค่เปลี่ยนโหมดให้ใช้ชื่อที่ล็อกไว้
     const queryToUse = isNewSearch ? searchQuery : activeSearchQuery;
 
     if (!queryToUse.trim()) { setErrorMsg("กรุณากรอก Riot ID และ Tag คับ"); return; }
@@ -90,7 +91,7 @@ function App() {
       } 
       else { 
         setPlayerData(data); 
-        if (isNewSearch) setActiveSearchQuery(queryToUse); // ล็อกชื่อเมื่อค้นหาสำเร็จ
+        if (isNewSearch) setActiveSearchQuery(queryToUse); 
       }
     } catch (error) {
       console.error("ดึงข้อมูลไม่สำเร็จ:", error); setErrorMsg("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์หลังบ้านได้");
@@ -138,7 +139,6 @@ function App() {
     }
   }
 
-  // 🔥 3. เปลี่ยนการคำนวณทั้งหมดให้ผูกกับ activeSearchQuery แทน
   const getOverallStats = () => {
     if (displayedMatches.length === 0) return null;
     
@@ -272,6 +272,26 @@ function App() {
     return Object.values(stats).sort((a, b) => b.matches - a.matches);
   }
 
+  // 🔥 2. ฟังก์ชันจัดการการคลิกเรียงข้อมูล 3 จังหวะ
+  const handleSort = (key) => {
+    setSortConfig(current => {
+      if (current.key === key) {
+        if (current.direction === 'default') return { key, direction: 'asc' }; // 1. น้อยไปมาก
+        if (current.direction === 'asc') return { key, direction: 'desc' }; // 2. มากไปน้อย
+        return { key: null, direction: 'default' }; // 3. คืนค่าเริ่มต้น
+      }
+      return { key, direction: 'asc' }; // เริ่มด้วยน้อยไปมาก
+    });
+  };
+
+  // 🔥 ไอคอนแสดงลูกศรขึ้นลง
+  const renderSortIcon = (key) => {
+    if (sortConfig.key !== key || sortConfig.direction === 'default') return <span className="inline-block ml-1 text-gray-700 text-[10px] font-normal">↕</span>;
+    return sortConfig.direction === 'asc' 
+      ? <span className="inline-block ml-1 text-white text-[10px] font-black">↑</span> 
+      : <span className="inline-block ml-1 text-white text-[10px] font-black">↓</span>;
+  };
+
   const overallStats = getOverallStats();
   const roleStatsArray = getRoleStats();
   const agentStatsArray = getAgentStats();
@@ -279,7 +299,19 @@ function App() {
 
   const renderTeamTable = (teamName, teamData, teamColorClass, bgColorClass, targetPlayerName, matchMode) => {
     if (!teamData || teamData.length === 0) return null;
-    const sortedTeam = [...teamData].sort((a, b) => (b.stats?.acs || 0) - (a.stats?.acs || 0));
+    
+    // 🔥 3. ระบบนำค่าจาก sortConfig มาเรียงข้อมูลในตาราง
+    let sortedTeam = [...teamData];
+    if (sortConfig.key && sortConfig.direction !== 'default') {
+      sortedTeam.sort((a, b) => {
+        let valA = Number(a.stats?.[sortConfig.key] || 0);
+        let valB = Number(b.stats?.[sortConfig.key] || 0);
+        return sortConfig.direction === 'asc' ? valA - valB : valB - valA;
+      });
+    } else {
+      sortedTeam.sort((a, b) => (b.stats?.acs || 0) - (a.stats?.acs || 0)); // Default
+    }
+
     const showRank = String(matchMode || "").toLowerCase() === 'competitive';
 
     return (
@@ -290,13 +322,13 @@ function App() {
               <th className="py-3 px-4 rounded-tl-md w-16">Agent</th>
               <th className="py-3 px-4 w-full">Player</th>
               {showRank && <th className="py-3 px-4 text-center w-24">Rank</th>}
-              <th className="py-3 px-4 text-center w-24">ACS</th>
-              <th className="py-3 px-4 text-center w-16">K</th>
-              <th className="py-3 px-4 text-center w-16">D</th>
-              <th className="py-3 px-4 text-center w-16">A</th>
-              <th className="py-3 px-4 text-center w-24">K/D</th>
-              <th className="py-3 px-4 text-center w-24">ADR</th>
-              <th className="py-3 px-4 text-center rounded-tr-md w-24">HS%</th>
+              <th className="py-3 px-4 text-center w-24 cursor-pointer hover:text-white transition-colors select-none" onClick={() => handleSort('acs')}>ACS {renderSortIcon('acs')}</th>
+              <th className="py-3 px-4 text-center w-16 cursor-pointer hover:text-white transition-colors select-none" onClick={() => handleSort('kills')}>K {renderSortIcon('kills')}</th>
+              <th className="py-3 px-4 text-center w-16 cursor-pointer hover:text-white transition-colors select-none" onClick={() => handleSort('deaths')}>D {renderSortIcon('deaths')}</th>
+              <th className="py-3 px-4 text-center w-16 cursor-pointer hover:text-white transition-colors select-none" onClick={() => handleSort('assists')}>A {renderSortIcon('assists')}</th>
+              <th className="py-3 px-4 text-center w-24 cursor-pointer hover:text-white transition-colors select-none" onClick={() => handleSort('kd')}>K/D {renderSortIcon('kd')}</th>
+              <th className="py-3 px-4 text-center w-24 cursor-pointer hover:text-white transition-colors select-none" onClick={() => handleSort('adr')}>ADR {renderSortIcon('adr')}</th>
+              <th className="py-3 px-4 text-center rounded-tr-md w-24 cursor-pointer hover:text-white transition-colors select-none" onClick={() => handleSort('hs_percent')}>HS% {renderSortIcon('hs_percent')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800/40">
@@ -345,7 +377,18 @@ function App() {
 
   const renderUnifiedTable = (scoreboardData, targetPlayerName, matchMode) => {
     if (!scoreboardData || scoreboardData.length === 0) return null;
-    const sortedData = [...scoreboardData].sort((a, b) => (b.stats?.acs || 0) - (a.stats?.acs || 0));
+    
+    let sortedData = [...scoreboardData];
+    if (sortConfig.key && sortConfig.direction !== 'default') {
+      sortedData.sort((a, b) => {
+        let valA = Number(a.stats?.[sortConfig.key] || 0);
+        let valB = Number(b.stats?.[sortConfig.key] || 0);
+        return sortConfig.direction === 'asc' ? valA - valB : valB - valA;
+      });
+    } else {
+      sortedData.sort((a, b) => (b.stats?.acs || 0) - (a.stats?.acs || 0)); // Default
+    }
+
     const showRank = String(matchMode || "").toLowerCase() === 'competitive';
 
     return (
@@ -356,13 +399,13 @@ function App() {
               <th className="py-3 px-4 rounded-tl-md w-16">Agent</th>
               <th className="py-3 px-4 w-full">Player</th>
               {showRank && <th className="py-3 px-4 text-center w-24">Rank</th>}
-              <th className="py-3 px-4 text-center w-24">ACS</th>
-              <th className="py-3 px-4 text-center w-16">K</th>
-              <th className="py-3 px-4 text-center w-16">D</th>
-              <th className="py-3 px-4 text-center w-16">A</th>
-              <th className="py-3 px-4 text-center w-24">K/D</th>
-              <th className="py-3 px-4 text-center w-24">ADR</th>
-              <th className="py-3 px-4 text-center rounded-tr-md w-24">HS%</th>
+              <th className="py-3 px-4 text-center w-24 cursor-pointer hover:text-white transition-colors select-none" onClick={() => handleSort('acs')}>ACS {renderSortIcon('acs')}</th>
+              <th className="py-3 px-4 text-center w-16 cursor-pointer hover:text-white transition-colors select-none" onClick={() => handleSort('kills')}>K {renderSortIcon('kills')}</th>
+              <th className="py-3 px-4 text-center w-16 cursor-pointer hover:text-white transition-colors select-none" onClick={() => handleSort('deaths')}>D {renderSortIcon('deaths')}</th>
+              <th className="py-3 px-4 text-center w-16 cursor-pointer hover:text-white transition-colors select-none" onClick={() => handleSort('assists')}>A {renderSortIcon('assists')}</th>
+              <th className="py-3 px-4 text-center w-24 cursor-pointer hover:text-white transition-colors select-none" onClick={() => handleSort('kd')}>K/D {renderSortIcon('kd')}</th>
+              <th className="py-3 px-4 text-center w-24 cursor-pointer hover:text-white transition-colors select-none" onClick={() => handleSort('adr')}>ADR {renderSortIcon('adr')}</th>
+              <th className="py-3 px-4 text-center rounded-tr-md w-24 cursor-pointer hover:text-white transition-colors select-none" onClick={() => handleSort('hs_percent')}>HS% {renderSortIcon('hs_percent')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800/40">
@@ -407,6 +450,40 @@ function App() {
         </table>
       </div>
     )
+  }
+
+  // 🔥 4. สร้างตัวแปรดึงสถานะฝั่งของเรา (My Team) ให้ชัวร์ก่อนเอาไปโชว์
+  const targetPlayerName = activeSearchQuery.split('#')[0].toLowerCase();
+  const myPlayerInMatch = selectedMatch?.scoreboard?.find(p => String(p.name || "").toLowerCase() === targetPlayerName);
+  const myTeam = myPlayerInMatch ? myPlayerInMatch.team : 'Blue';
+  const otherTeam = myTeam === 'Blue' ? 'Red' : 'Blue';
+  
+  const myTeamScore = selectedMatch?.teams?.[myTeam.toLowerCase()] || 0;
+  const otherTeamScore = selectedMatch?.teams?.[otherTeam.toLowerCase()] || 0;
+
+  // สร้างฟังก์ชันวาด Timeline สลับสีให้อัตโนมัติ
+  const renderTimelineRow = (team, score, title) => {
+    const isBlue = team === 'Blue';
+    const colorClass = isBlue ? 'text-blue-400' : 'text-red-400';
+    const winIconColor = isBlue ? 'text-teal-400' : 'text-[#ff4655]';
+    
+    return (
+      <div className="flex items-center w-full">
+        <div className={`w-24 md:w-28 text-sm font-bold ${colorClass} flex justify-between items-center pr-4 border-r border-gray-700`}>
+          <span className="uppercase tracking-wide">{title}</span>
+          <span className="text-2xl font-black tabular-nums">{score}</span>
+        </div>
+        <div className="flex flex-1 gap-1.5 md:gap-2 ml-4">
+          {selectedMatch?.round_history?.map(r => (
+            <div key={r.round_num} className="flex-1 flex justify-center items-center h-8">
+              {r.winning_team === team 
+                ? <span className={`${winIconColor} font-black drop-shadow-[0_0_5px_rgba(255,255,255,0.4)]`}>{getRoundIcon(r.end_type)}</span> 
+                : <span className="w-1.5 h-1.5 rounded-full bg-gray-600/50"></span>}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -597,7 +674,6 @@ function App() {
               <div className="w-full space-y-4 animate-fade-in pb-10">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 border-b border-gray-800 pb-4 gap-4">
                   <div>
-                    {/* 🔥 4. ดึงชื่อที่ค้นหาสำเร็จมาโชว์แทนชื่อที่กำลังพิมพ์พิมพ์ */}
                     <h2 className="text-xl font-bold text-gray-300">ประวัติการเล่นของ <span className="text-red-400 font-extrabold">{activeSearchQuery.split('#')[0]}</span></h2>
                     <p className="text-xs text-gray-500 mt-1">คลิกที่การ์ดเพื่อเปิดดูตาราง Scoreboard เต็มรูปแบบ</p>
                   </div>
@@ -617,7 +693,8 @@ function App() {
                 <div className={loading ? 'opacity-30 pointer-events-none' : 'opacity-100 space-y-4'}>
                   {displayedMatches.map((match, index) => {
                     return (
-                      <div key={match.match_id || index} onClick={() => setSelectedMatch(match)} className="bg-gray-900 border border-gray-800/80 p-4 sm:p-5 rounded-2xl grid grid-cols-1 sm:grid-cols-12 items-center gap-4 shadow-lg hover:border-red-500/50 hover:bg-gray-900/80 cursor-pointer transition-all tabular-nums">
+                      // 🔥 ล้างค่าการเรียงลำดับเวลาเปิดแมตช์ใหม่ ให้กลับเป็นเรียงตาม ACS (Default)
+                      <div key={match.match_id || index} onClick={() => { setSelectedMatch(match); setSortConfig({ key: null, direction: 'default' }); }} className="bg-gray-900 border border-gray-800/80 p-4 sm:p-5 rounded-2xl grid grid-cols-1 sm:grid-cols-12 items-center gap-4 shadow-lg hover:border-red-500/50 hover:bg-gray-900/80 cursor-pointer transition-all tabular-nums">
                         <div className="col-span-1 sm:col-span-5 flex items-center gap-4 sm:gap-5 w-full">
                           <div className="flex flex-col items-center justify-center bg-gray-950/80 p-2 rounded-xl border border-gray-800 min-w-[80px]">
                             {agentImages[match.agent] ? ( <img src={agentImages[match.agent]} alt={match.agent} className="w-12 h-12 object-contain" /> ) : ( <div className="w-12 h-12 flex items-center justify-center bg-gray-800 rounded-full text-xs font-bold border border-gray-700">{String(match.agent || "UN").substring(0, 2).toUpperCase()}</div> )}
@@ -794,48 +871,28 @@ function App() {
                     </div>
                   </div>
                   <div className="flex items-center gap-4 bg-gray-900/60 px-6 py-2.5 rounded-lg border border-gray-800/80">
-                    <span className="text-sm font-bold text-red-500/80 mr-1 uppercase">Team A</span>
-                    <span className="text-3xl font-black text-red-400 tabular-nums">{selectedMatch.teams?.red || 0}</span>
+                    <span className={`text-sm font-bold ${myTeam === 'Blue' ? 'text-blue-500/80' : 'text-red-500/80'} mr-1 uppercase`}>
+                      {myTeam === 'Blue' ? 'Team B' : 'Team A'} (You)
+                    </span>
+                    <span className={`text-3xl font-black ${myTeam === 'Blue' ? 'text-blue-400' : 'text-red-400'} tabular-nums`}>
+                      {myTeamScore}
+                    </span>
                     <span className="text-xl font-bold text-gray-600 mx-2">:</span>
-                    <span className="text-3xl font-black text-blue-400 tabular-nums">{selectedMatch.teams?.blue || 0}</span>
-                    <span className="text-sm font-bold text-blue-500/80 ml-1 uppercase">Team B</span>
+                    <span className={`text-3xl font-black ${otherTeam === 'Blue' ? 'text-blue-400' : 'text-red-400'} tabular-nums`}>
+                      {otherTeamScore}
+                    </span>
+                    <span className={`text-sm font-bold ${otherTeam === 'Blue' ? 'text-blue-500/80' : 'text-red-500/80'} ml-1 uppercase`}>
+                      {otherTeam === 'Blue' ? 'Team B' : 'Team A'}
+                    </span>
                   </div>
                 </div>
 
                 {selectedMatch.round_history && selectedMatch.round_history.length > 0 && (
                   <div className="w-full bg-[#111823] border border-gray-800/80 rounded-xl p-4 sm:p-5 mb-6">
                     <div className="flex flex-col gap-3">
-                      <div className="flex items-center w-full">
-                        <div className="w-24 md:w-28 text-sm font-bold text-blue-400 flex justify-between items-center pr-4 border-r border-gray-700">
-                          <span className="uppercase tracking-wide">Team B</span>
-                          <span className="text-2xl font-black tabular-nums">{selectedMatch.teams?.blue || 0}</span>
-                        </div>
-                        <div className="flex flex-1 gap-1.5 md:gap-2 ml-4">
-                          {selectedMatch.round_history.map(r => (
-                            <div key={r.round_num} className="flex-1 flex justify-center items-center h-8">
-                              {r.winning_team === 'Blue' 
-                                ? <span className="text-teal-400 font-black drop-shadow-[0_0_5px_rgba(45,212,191,0.4)]">{getRoundIcon(r.end_type)}</span> 
-                                : <span className="w-1.5 h-1.5 rounded-full bg-gray-600/50"></span>}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center w-full">
-                        <div className="w-24 md:w-28 text-sm font-bold text-red-400 flex justify-between items-center pr-4 border-r border-gray-700">
-                          <span className="uppercase tracking-wide">Team A</span>
-                          <span className="text-2xl font-black tabular-nums">{selectedMatch.teams?.red || 0}</span>
-                        </div>
-                        <div className="flex flex-1 gap-1.5 md:gap-2 ml-4">
-                          {selectedMatch.round_history.map(r => (
-                            <div key={r.round_num} className="flex-1 flex justify-center items-center h-8">
-                              {r.winning_team === 'Red' 
-                                ? <span className="text-[#ff4655] font-black drop-shadow-[0_0_5px_rgba(255,70,85,0.4)]">{getRoundIcon(r.end_type)}</span> 
-                                : <span className="w-1.5 h-1.5 rounded-full bg-gray-600/50"></span>}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                      {/* 🔥 ย้ายทีมเรา (You) ขึ้นมาอยู่บนสุดเสมอ */}
+                      {renderTimelineRow(myTeam, myTeamScore, myTeam === 'Blue' ? 'Team B' : 'Team A')}
+                      {renderTimelineRow(otherTeam, otherTeamScore, otherTeam === 'Blue' ? 'Team B' : 'Team A')}
 
                       <div className="flex items-center mt-1 w-full">
                         <div className="w-24 md:w-28 pr-4 border-r border-transparent"></div>
@@ -852,9 +909,23 @@ function App() {
                 )}
 
                 <div className="flex flex-col gap-6">
-                  {/* 🔥 5. อัปเดต Modal Scoreboard ให้ใช้ชื่อที่ล็อกไว้ด้วย */}
-                  {renderTeamTable("Team Blue", selectedMatch.scoreboard?.filter(p => p.team === 'Blue'), "border-blue-500/40", "bg-blue-950/20", activeSearchQuery.split('#')[0], selectedMatch.mode)}
-                  {renderTeamTable("Team Red", selectedMatch.scoreboard?.filter(p => p.team === 'Red'), "border-red-500/40", "bg-red-950/20", activeSearchQuery.split('#')[0], selectedMatch.mode)}
+                  {/* 🔥 ย้ายตารางฝั่งเรา (You) ขึ้นมาอยู่บนสุดเสมอ */}
+                  {renderTeamTable(
+                    myTeam === 'Blue' ? 'Team Blue' : 'Team Red', 
+                    selectedMatch.scoreboard?.filter(p => p.team === myTeam), 
+                    myTeam === 'Blue' ? "border-blue-500/40" : "border-red-500/40", 
+                    myTeam === 'Blue' ? "bg-blue-950/20" : "bg-red-950/20", 
+                    targetPlayerName, 
+                    selectedMatch.mode
+                  )}
+                  {renderTeamTable(
+                    otherTeam === 'Blue' ? 'Team Blue' : 'Team Red', 
+                    selectedMatch.scoreboard?.filter(p => p.team === otherTeam), 
+                    otherTeam === 'Blue' ? "border-blue-500/40" : "border-red-500/40", 
+                    otherTeam === 'Blue' ? "bg-blue-950/20" : "bg-red-950/20", 
+                    targetPlayerName, 
+                    selectedMatch.mode
+                  )}
                 </div>
               </>
             ) : (
@@ -873,7 +944,7 @@ function App() {
                 </div>
 
                 <div className="flex flex-col gap-6">
-                  {renderUnifiedTable(selectedMatch.scoreboard, activeSearchQuery.split('#')[0], selectedMatch.mode)}
+                  {renderUnifiedTable(selectedMatch.scoreboard, targetPlayerName, selectedMatch.mode)}
                 </div>
               </>
             )}
