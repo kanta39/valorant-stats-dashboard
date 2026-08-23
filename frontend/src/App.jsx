@@ -158,11 +158,18 @@ function App() {
     return { totalMatches, winRate, kdaRatio, wins, losses, draws, totalKills, totalDeaths, totalAssists };
   }
 
-  // 🔥 เอากลับมาแล้ว! ฟังก์ชัน getRoleStats ที่ทำเว็บพังเพราะหายไป 🔥
   const getRoleStats = () => {
-    if (displayedMatches.length === 0) return [];
+    // 🔥 ตั้งค่าโครงสร้างทั้ง 4 ตำแหน่งหลักของ Valorant รอไว้เลย เพื่อให้โชว์บนหน้าเว็บเสมอ
+    const stats = {
+      'Duelist': { name: 'Duelist', w: 0, l: 0, d: 0, k: 0, death: 0, a: 0, matches: 0 },
+      'Initiator': { name: 'Initiator', w: 0, l: 0, d: 0, k: 0, death: 0, a: 0, matches: 0 },
+      'Controller': { name: 'Controller', w: 0, l: 0, d: 0, k: 0, death: 0, a: 0, matches: 0 },
+      'Sentinel': { name: 'Sentinel', w: 0, l: 0, d: 0, k: 0, death: 0, a: 0, matches: 0 }
+    };
+
+    // ถ้าไม่มีประวัติการเล่นเลย ก็ให้โชว์การ์ดทั้ง 4 ตำแหน่งเป็นเลข 0
+    if (displayedMatches.length === 0) return Object.values(stats);
     
-    const stats = {};
     const targetName = searchQuery.split('#')[0].toLowerCase();
 
     displayedMatches.forEach(match => {
@@ -170,6 +177,7 @@ function App() {
       if (!myPlayer) return;
 
       const role = agentRoles[match.agent] || 'Unknown';
+      // ถ้าเผื่อเกมมีอัปเดต Role ใหม่แปลกๆ ในอนาคต ให้สร้างเพิ่มให้ทันที
       if (!stats[role]) {
         stats[role] = { name: role, w: 0, l: 0, d: 0, k: 0, death: 0, a: 0, matches: 0 };
       }
@@ -189,6 +197,7 @@ function App() {
       else stats[role].l += 1;
     });
 
+    // จัดเรียงลำดับ: สายที่เล่นบ่อยสุดขึ้นก่อน สายที่ไม่ได้เล่น (0 นัด) จะถูกดันไปอยู่ล่างสุด
     return Object.values(stats).sort((a, b) => b.matches - a.matches);
   }
 
