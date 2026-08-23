@@ -12,6 +12,9 @@ const VALORANT_MODES = [
 
 function App() {
   const [searchQuery, setSearchQuery] = useState("Raven#x10") 
+  // 🔥 1. เพิ่มตัวแปรใหม่สำหรับ "ล็อก" ชื่อที่ใช้ค้นหาสำเร็จล่าสุด
+  const [activeSearchQuery, setActiveSearchQuery] = useState("Raven#x10") 
+  
   const [playerData, setPlayerData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState(null)
@@ -29,7 +32,7 @@ function App() {
     fetch('https://valorant-api.com/v1/agents?isPlayableCharacter=true')
       .then(res => res.json())
       .then(data => {
-        if (!data || !data.data) return; // 🔥 ดักจับเผื่อ API ล่ม
+        if (!data || !data.data) return;
         const imageMap = {};
         const roleMap = {};
         const rIconMap = {};
@@ -49,7 +52,7 @@ function App() {
     fetch('https://valorant-api.com/v1/competitivetiers')
       .then(res => res.json())
       .then(data => {
-        if (!data || !data.data || data.data.length === 0) return; // 🔥 ดักจับเผื่อ API ล่ม
+        if (!data || !data.data || data.data.length === 0) return;
         const latestEpisode = data.data[data.data.length - 1];
         const rankMap = {};
         if (latestEpisode && latestEpisode.tiers) {
@@ -64,10 +67,13 @@ function App() {
   }, []);
 
   const fetchStats = async (modeToFetch = filterMode, isNewSearch = false) => {
-    if (!searchQuery.trim()) { setErrorMsg("กรุณากรอก Riot ID และ Tag คับ"); return; }
-    if (!searchQuery.includes('#')) { setErrorMsg("รูปแบบไม่ถูกต้องคับ กรุณาพิมพ์ในรูปแบบ ชื่อ#แท็ก (ต้องมีเครื่องหมาย #)"); return; }
+    // 🔥 2. ถ้าเป็นการค้นหาใหม่ให้ใช้ชื่อในกล่อง ถ้าแค่เปลี่ยนโหมดให้ใช้ชื่อที่ล็อกไว้
+    const queryToUse = isNewSearch ? searchQuery : activeSearchQuery;
+
+    if (!queryToUse.trim()) { setErrorMsg("กรุณากรอก Riot ID และ Tag คับ"); return; }
+    if (!queryToUse.includes('#')) { setErrorMsg("รูปแบบไม่ถูกต้องคับ กรุณาพิมพ์ในรูปแบบ ชื่อ#แท็ก (ต้องมีเครื่องหมาย #)"); return; }
     
-    const [riotName, riotTag] = searchQuery.split('#')
+    const [riotName, riotTag] = queryToUse.split('#')
     if (!riotName.trim() || !riotTag.trim()) { setErrorMsg("กรุณากรอกทั้งชื่อและแท็กให้ครบถ้วนคับ"); return; }
 
     setLoading(true); setErrorMsg(null); setSelectedMatch(null);
@@ -78,8 +84,14 @@ function App() {
     try {
       const response = await fetch(`https://val-stats-api.onrender.com/api/matches/${riotName.trim()}/${riotTag.trim()}?mode=${currentMode}`)
       const data = await response.json()
-      if (data.error) { setErrorMsg(data.error); if (isNewSearch) setPlayerData(null); } 
-      else { setPlayerData(data); }
+      if (data.error) { 
+        setErrorMsg(data.error); 
+        if (isNewSearch) setPlayerData(null); 
+      } 
+      else { 
+        setPlayerData(data); 
+        if (isNewSearch) setActiveSearchQuery(queryToUse); // ล็อกชื่อเมื่อค้นหาสำเร็จ
+      }
     } catch (error) {
       console.error("ดึงข้อมูลไม่สำเร็จ:", error); setErrorMsg("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์หลังบ้านได้");
       if (isNewSearch) setPlayerData(null);
@@ -126,12 +138,13 @@ function App() {
     }
   }
 
+  // 🔥 3. เปลี่ยนการคำนวณทั้งหมดให้ผูกกับ activeSearchQuery แทน
   const getOverallStats = () => {
     if (displayedMatches.length === 0) return null;
     
     let totalKills = 0; let totalDeaths = 0; let totalAssists = 0;
     let wins = 0; let losses = 0; let draws = 0;
-    const targetName = searchQuery.split('#')[0].toLowerCase();
+    const targetName = activeSearchQuery.split('#')[0].toLowerCase();
 
     displayedMatches.forEach(match => {
       totalKills += match.raw_stats?.kills || 0;
@@ -159,7 +172,6 @@ function App() {
   }
 
   const getRoleStats = () => {
-    // 🔥 ตั้งค่าโครงสร้างทั้ง 4 ตำแหน่งหลักของ Valorant รอไว้เลย เพื่อให้โชว์บนหน้าเว็บเสมอ
     const stats = {
       'Duelist': { name: 'Duelist', w: 0, l: 0, d: 0, k: 0, death: 0, a: 0, matches: 0 },
       'Initiator': { name: 'Initiator', w: 0, l: 0, d: 0, k: 0, death: 0, a: 0, matches: 0 },
@@ -167,17 +179,14 @@ function App() {
       'Sentinel': { name: 'Sentinel', w: 0, l: 0, d: 0, k: 0, death: 0, a: 0, matches: 0 }
     };
 
-    // ถ้าไม่มีประวัติการเล่นเลย ก็ให้โชว์การ์ดทั้ง 4 ตำแหน่งเป็นเลข 0
     if (displayedMatches.length === 0) return Object.values(stats);
-    
-    const targetName = searchQuery.split('#')[0].toLowerCase();
+    const targetName = activeSearchQuery.split('#')[0].toLowerCase();
 
     displayedMatches.forEach(match => {
       const myPlayer = match.scoreboard?.find(p => String(p.name || "").toLowerCase() === targetName);
       if (!myPlayer) return;
 
       const role = agentRoles[match.agent] || 'Unknown';
-      // ถ้าเผื่อเกมมีอัปเดต Role ใหม่แปลกๆ ในอนาคต ให้สร้างเพิ่มให้ทันที
       if (!stats[role]) {
         stats[role] = { name: role, w: 0, l: 0, d: 0, k: 0, death: 0, a: 0, matches: 0 };
       }
@@ -197,7 +206,6 @@ function App() {
       else stats[role].l += 1;
     });
 
-    // จัดเรียงลำดับ: สายที่เล่นบ่อยสุดขึ้นก่อน สายที่ไม่ได้เล่น (0 นัด) จะถูกดันไปอยู่ล่างสุด
     return Object.values(stats).sort((a, b) => b.matches - a.matches);
   }
 
@@ -205,7 +213,7 @@ function App() {
     if (displayedMatches.length === 0) return [];
     
     const stats = {};
-    const targetName = searchQuery.split('#')[0].toLowerCase();
+    const targetName = activeSearchQuery.split('#')[0].toLowerCase();
 
     displayedMatches.forEach(match => {
       const myPlayer = match.scoreboard?.find(p => String(p.name || "").toLowerCase() === targetName);
@@ -233,15 +241,14 @@ function App() {
 
     return Object.values(stats).sort((a, b) => b.matches - a.matches);
   }
-  
+
   const getMapStats = () => {
     if (displayedMatches.length === 0) return [];
     
     const stats = {};
-    const targetName = searchQuery.split('#')[0].toLowerCase();
+    const targetName = activeSearchQuery.split('#')[0].toLowerCase();
 
     displayedMatches.forEach(match => {
-      // ดักจับไม่ให้ระบบล่มถ้า p.name เป็น Null
       const myPlayer = match.scoreboard?.find(p => String(p.name || "").toLowerCase() === targetName);
       if (!myPlayer) return;
 
@@ -590,7 +597,8 @@ function App() {
               <div className="w-full space-y-4 animate-fade-in pb-10">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 border-b border-gray-800 pb-4 gap-4">
                   <div>
-                    <h2 className="text-xl font-bold text-gray-300">ประวัติการเล่นของ <span className="text-red-400 font-extrabold">{searchQuery.split('#')[0]}</span></h2>
+                    {/* 🔥 4. ดึงชื่อที่ค้นหาสำเร็จมาโชว์แทนชื่อที่กำลังพิมพ์พิมพ์ */}
+                    <h2 className="text-xl font-bold text-gray-300">ประวัติการเล่นของ <span className="text-red-400 font-extrabold">{activeSearchQuery.split('#')[0]}</span></h2>
                     <p className="text-xs text-gray-500 mt-1">คลิกที่การ์ดเพื่อเปิดดูตาราง Scoreboard เต็มรูปแบบ</p>
                   </div>
                   <div className="flex items-center gap-2 w-full sm:w-auto relative">
@@ -709,6 +717,7 @@ function App() {
                 )}
               </div>
             )}
+
             {activeTab === "maps" && (
               <div className="w-full space-y-6 animate-fade-in pb-10">
                 <div className="border-b border-gray-800 pb-4">
@@ -738,12 +747,9 @@ function App() {
                           </div>
 
                           <div className="relative z-10 mt-auto">
-                            {/* หลอด Progress Bar วัดความเก่ง */}
                             <div className="w-full h-2.5 bg-gray-900 rounded-full overflow-hidden mb-3 border border-gray-800">
                               <div className={`h-full transition-all duration-1000 ${winColor}`} style={{ width: `${winRate}%` }}></div>
                             </div>
-                            
-                            {/* สรุป W/L/D */}
                             <div className="flex justify-between items-center text-[10px] font-black tracking-widest">
                               <span className="text-green-400">{mapData.w} WINS</span>
                               <span className="text-gray-600">{mapData.d} DRAWS</span>
@@ -760,9 +766,7 @@ function App() {
               </div>
             )}
           </div>
-           
         </div>
-        
       )}
 
       {/* 📜 FOOTER */}
@@ -848,8 +852,9 @@ function App() {
                 )}
 
                 <div className="flex flex-col gap-6">
-                  {renderTeamTable("Team Blue", selectedMatch.scoreboard?.filter(p => p.team === 'Blue'), "border-blue-500/40", "bg-blue-950/20", searchQuery.split('#')[0], selectedMatch.mode)}
-                  {renderTeamTable("Team Red", selectedMatch.scoreboard?.filter(p => p.team === 'Red'), "border-red-500/40", "bg-red-950/20", searchQuery.split('#')[0], selectedMatch.mode)}
+                  {/* 🔥 5. อัปเดต Modal Scoreboard ให้ใช้ชื่อที่ล็อกไว้ด้วย */}
+                  {renderTeamTable("Team Blue", selectedMatch.scoreboard?.filter(p => p.team === 'Blue'), "border-blue-500/40", "bg-blue-950/20", activeSearchQuery.split('#')[0], selectedMatch.mode)}
+                  {renderTeamTable("Team Red", selectedMatch.scoreboard?.filter(p => p.team === 'Red'), "border-red-500/40", "bg-red-950/20", activeSearchQuery.split('#')[0], selectedMatch.mode)}
                 </div>
               </>
             ) : (
@@ -868,7 +873,7 @@ function App() {
                 </div>
 
                 <div className="flex flex-col gap-6">
-                  {renderUnifiedTable(selectedMatch.scoreboard, searchQuery.split('#')[0], selectedMatch.mode)}
+                  {renderUnifiedTable(selectedMatch.scoreboard, activeSearchQuery.split('#')[0], selectedMatch.mode)}
                 </div>
               </>
             )}
