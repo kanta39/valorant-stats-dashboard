@@ -83,7 +83,8 @@ function App() {
     if (isNewSearch) { currentMode = "All"; setFilterMode("All"); setActiveTab("overview"); }
 
     try {
-      const response = await fetch(`https://val-stats-api.onrender.com/api/matches/${riotName.trim()}/${riotTag.trim()}?mode=${currentMode}`)
+      // เพิ่ม { cache: "no-store" } เข้าไปด้านหลังสุดของวงเล็บ fetch
+const response = await fetch(`https://val-stats-api.onrender.com/api/matches/${riotName.trim()}/${riotTag.trim()}?mode=${currentMode}`, { cache: "no-store" })
       const data = await response.json()
       if (data.error) { 
         setErrorMsg(data.error); 
@@ -318,8 +319,8 @@ function App() {
       });
     });
 
-    // เรียงคนที่เล่นด้วยบ่อยสุดขึ้นก่อน
-    return Object.values(stats).sort((a, b) => b.matches - a.matches);
+    // เรียงคนที่เล่นด้วยบ่อยสุดขึ้นก่อน แล้วตัดเอามาโชว์แค่ 5 อันดับแรก (Top 5)
+    return Object.values(stats).sort((a, b) => b.matches - a.matches).slice(0, 5);
   }
 
   // 🔥 2. ฟังก์ชันจัดการการคลิกเรียงข้อมูล 3 จังหวะ
