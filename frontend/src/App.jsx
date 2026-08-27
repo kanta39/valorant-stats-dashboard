@@ -11,8 +11,8 @@ const VALORANT_MODES = [
 ];
 
 function App() {
-  const [searchQuery, setSearchQuery] = useState("Raven#x10") 
-  const [activeSearchQuery, setActiveSearchQuery] = useState("Raven#x10") 
+  const [searchQuery, setSearchQuery] = useState("Double Chesse#0001") 
+  const [activeSearchQuery, setActiveSearchQuery] = useState("Double Chesse#0001") 
   
   const [playerData, setPlayerData] = useState(null)
   const [loading, setLoading] = useState(false)
