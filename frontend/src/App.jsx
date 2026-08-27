@@ -272,6 +272,56 @@ function App() {
     return Object.values(stats).sort((a, b) => b.matches - a.matches);
   }
 
+  const getPartyStats = () => {
+    if (displayedMatches.length === 0) return [];
+    
+    const stats = {};
+    const targetName = activeSearchQuery.split('#')[0].toLowerCase();
+
+    displayedMatches.forEach(match => {
+      const myPlayer = match.scoreboard?.find(p => String(p.name || "").toLowerCase() === targetName);
+      if (!myPlayer || !myPlayer.party_id) return;
+
+      const myPartyId = myPlayer.party_id;
+      const myTeam = myPlayer.team;
+      const redScore = match.teams?.red || 0;
+      const blueScore = match.teams?.blue || 0;
+      
+      const isWin = (redScore > blueScore && myTeam === 'Red') || (blueScore > redScore && myTeam === 'Blue');
+      const isDraw = redScore === blueScore;
+
+      // หาเพื่อนทุกคนที่ party_id ตรงกับเรา (แต่ไม่ใช่ตัวเราเอง)
+      const partyMembers = match.scoreboard?.filter(p => 
+        p.party_id === myPartyId && String(p.name || "").toLowerCase() !== targetName
+      ) || [];
+
+      partyMembers.forEach(friend => {
+        const friendKey = `${friend.name}#${friend.tag}`;
+        if (!stats[friendKey]) {
+          stats[friendKey] = {
+            name: friend.name,
+            tag: friend.tag,
+            matches: 0,
+            wins: 0,
+            losses: 0,
+            draws: 0,
+            lastAgent: friend.agent
+          };
+        }
+
+        stats[friendKey].matches += 1;
+        stats[friendKey].lastAgent = friend.agent;
+
+        if (isDraw) stats[friendKey].draws += 1;
+        else if (isWin) stats[friendKey].wins += 1;
+        else stats[friendKey].losses += 1;
+      });
+    });
+
+    // เรียงคนที่เล่นด้วยบ่อยสุดขึ้นก่อน
+    return Object.values(stats).sort((a, b) => b.matches - a.matches);
+  }
+
   // 🔥 2. ฟังก์ชันจัดการการคลิกเรียงข้อมูล 3 จังหวะ
   const handleSort = (key) => {
     setSortConfig(current => {
@@ -296,6 +346,7 @@ function App() {
   const roleStatsArray = getRoleStats();
   const agentStatsArray = getAgentStats();
   const mapStatsArray = getMapStats();
+  const partyStatsArray = getPartyStats();
 
   const renderTeamTable = (teamName, teamData, teamColorClass, bgColorClass, targetPlayerName, matchMode) => {
     if (!teamData || teamData.length === 0) return null;
@@ -663,6 +714,57 @@ function App() {
                   )
                 }) : (
                   <div className="text-center text-gray-600 py-4 text-xs border border-dashed border-gray-800 rounded-xl">ไม่พบข้อมูลสายการเล่น</div>
+                )}
+              </div>
+            </div>
+            {/* 👥 PARTY / TEAMMATES INSIGHTS */}
+            <div className="bg-[#111823] border border-gray-800/80 rounded-2xl p-5 shadow-xl animate-fade-in">
+              <h3 className="text-white text-base font-black tracking-widest uppercase mb-4 flex items-center gap-2">
+                <span className="text-green-400">👥</span> PARTY DUO & FRIENDS
+              </h3>
+
+              <div className="flex flex-col gap-3">
+                {partyStatsArray.length > 0 ? partyStatsArray.map((friend, idx) => {
+                  const winRate = ((friend.wins / friend.matches) * 100).toFixed(1);
+                  const isLucky = Number(winRate) >= 50;
+
+                  return (
+                    <div key={idx} className="flex items-center justify-between bg-gray-900/50 p-3 rounded-xl border border-gray-800/60 hover:bg-gray-800/50 transition-colors">
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <div className="w-10 h-10 bg-gray-950 rounded-lg border border-gray-700 p-0.5 flex-shrink-0 flex items-center justify-center">
+                          {agentImages[friend.lastAgent] ? (
+                            <img src={agentImages[friend.lastAgent]} alt={friend.lastAgent} className="w-full h-full object-contain" />
+                          ) : (
+                            <span className="text-[10px] font-bold text-gray-500">{String(friend.name).substring(0, 2)}</span>
+                          )}
+                        </div>
+                        <div className="flex flex-col truncate">
+                          <p className="text-white font-bold text-sm truncate flex items-center gap-1">
+                            {friend.name}
+                            <span className="text-[10px] text-gray-500 font-normal">#{friend.tag}</span>
+                          </p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">
+                            {friend.matches} แมตช์ ({friend.wins}W - {friend.losses}L)
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="text-right flex flex-col justify-center flex-shrink-0 ml-2">
+                        <span className={`text-xs font-black px-2 py-0.5 rounded border ${
+                          isLucky ? 'bg-green-500/10 text-green-400 border-green-500/30' : 'bg-red-500/10 text-red-400 border-red-500/30'
+                        }`}>
+                          WR {winRate}%
+                        </span>
+                        <span className="text-[9px] text-gray-500 font-bold mt-1 uppercase">
+                          {isLucky ? '✨ เพื่อนแบก' : '💀 เพื่อนแจก'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                }) : (
+                  <div className="text-center text-gray-600 py-4 text-xs border border-dashed border-gray-800 rounded-xl">
+                    เล่นคนเดียว (Solo Queue) ใน 20 นัดล่าสุด
+                  </div>
                 )}
               </div>
             </div>

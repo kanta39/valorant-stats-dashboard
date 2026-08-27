@@ -6,7 +6,9 @@ build/
 
 # ไฟล์ฝั่ง Python
 __pycache__/
+backend/__pycache__/
 venv/
+backend/venv/
 env/
 *.pyc
 

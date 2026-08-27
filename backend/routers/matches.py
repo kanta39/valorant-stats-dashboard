@@ -1,79 +1,12 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware # นำเข้าตัวจัดการประตูรักษาความปลอดภัย
-import requests
-import os # เครื่องมืออ่านระบบปฏิบัติการ
-from dotenv import load_dotenv # เครื่องมือโหลดไฟล์ลับ
+from fastapi import APIRouter
+from backend.services.valorant_api import fetch_mmr, fetch_matches
+from backend.utils.performance import calculate_performance
 
-# โหลดค่าจากไฟล์ .env เข้าสู่ระบบ
-load_dotenv()
+router = APIRouter(prefix="/api/matches")
 
-app = FastAPI()
-
-# 🔥 เพิ่มโค้ดชุดนี้เข้าไปใต้คำว่า app = FastAPI() 🔥
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # อนุญาตให้เว็บ Vercel (หรือเว็บอื่นๆ) เข้ามาดึงข้อมูลได้
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# 🔑 2. ดึง API Key มาจากไฟล์ลับ .env อย่างปลอดภัย
-API_KEY = os.getenv("VALORANT_API_KEY")
-
-def calculate_performance(kills: int, deaths: int, assists: int, headshots: int):
-    safe_deaths = deaths if deaths > 0 else 1
-    kda_ratio = (kills + assists) / safe_deaths
-    hs_ratio = headshots / kills if kills > 0 else 0
-    kda_score = min(100, (kda_ratio / 3.0) * 100) 
-    acc_score = min(100, (hs_ratio / 0.8) * 100)
-    total_score = round((kda_score * 0.7) + (acc_score * 0.3))
-    
-    if total_score >= 80:
-        grade = "S (Excellent)"
-    elif total_score >= 65:
-        grade = "A (Great)"
-    elif total_score >= 50:
-        grade = "B (Good)"
-    elif total_score >= 35:
-        grade = "C (Average)"
-    else:
-        grade = "D (Needs Improvement)"
-        
-    return total_score, grade, round(kda_ratio, 2)
-
-@app.get("/")
-def read_root():
-    return {"message": "Welcome to VALORANT Dashboard API!", "status": "Server is running perfectly"}
-
-@app.get("/api/player/{name}/{tag}")
-def get_player_info(name: str, tag: str):
-    url = f"https://api.henrikdev.xyz/valorant/v1/account/{name}/{tag}"
-    headers = {"Authorization": API_KEY}
-    response = requests.get(url, headers=headers)
-    
-    # 🔥 เพิ่ม 3 บรรทัดนี้เข้าไป เพื่อดักทางเวลาหาชื่อไม่เจอ
-    if response.status_code != 200:
-        raise HTTPException(status_code=404, detail="ไม่พบข้อมูลผู้เล่นนี้ โปรดตรวจสอบชื่อและแท็กอีกครั้ง")
-        
-    data = response.json()
-    
-    if response.status_code == 200:
-        data = response.json()
-        return {
-            "message": "ดึงข้อมูลสำเร็จ!",
-            "player_name": data['data']['name'],
-            "player_tag": data['data']['tag'],
-            "account_level": data['data']['account_level'],
-            "card_image": data['data']['card']['small']
-        }
-    else:
-        return {"error": "ไม่พบข้อมูลผู้เล่น", "status_code": response.status_code}
-
-@app.get("/api/matches/{name}/{tag}")
+@router.get("/{name}/{tag}")
 def get_player_matches(name: str, tag: str, mode: str = "All"):
     region = "ap"
-    headers = {"Authorization": API_KEY}
     
 # 1. อัปเกรดการดึงแรงค์ (ใช้ v2 เพื่อดึง Peak Rank และ RR)
     my_real_rank = "Unranked"
@@ -81,8 +14,7 @@ def get_player_matches(name: str, tag: str, mode: str = "All"):
     peak_rank = "Unranked"
     
     try:
-        mmr_url = f"https://api.henrikdev.xyz/valorant/v2/mmr/{region}/{name}/{tag}"
-        mmr_res = requests.get(mmr_url, headers=headers)
+        mmr_res = fetch_mmr(region, name, tag)
         if mmr_res.status_code == 200:
             mmr_data = mmr_res.json().get('data', {})
             if mmr_data:
@@ -96,12 +28,7 @@ def get_player_matches(name: str, tag: str, mode: str = "All"):
         print("ดึงข้อมูล MMR ไม่สำเร็จ:", e)
 
     # 🔥 2. ดึงประวัติ 20 นัดล่าสุด พร้อมยัดตัวกรองดัก API ทุกรูปแบบ
-    url = f"https://api.henrikdev.xyz/valorant/v3/matches/{region}/{name}/{tag}?size=20"
-    if mode != "All":
-        mode_lower = mode.lower()
-        url += f"&mode={mode_lower}&filter={mode_lower}"
-        
-    response = requests.get(url, headers=headers)
+    response = fetch_matches(region, name, tag, 20, mode)
     
     if response.status_code == 200:
         data = response.json()
@@ -165,7 +92,6 @@ def get_player_matches(name: str, tag: str, mode: str = "All"):
                         "name": player['name'],
                         "tag": player['tag'],
                         "team": player['team'],
-                        "party_id": player.get('party_id'), # 👈 เพิ่มแค่บรรทัดนี้บรรทัดเดียวคับ
                         "agent": player['character'],
                         "rank": raw_rank,
                         "stats": {
@@ -210,4 +136,3 @@ def get_player_matches(name: str, tag: str, mode: str = "All"):
             return {"message": "ไม่พบประวัติการแข่งขันล่าสุด"}
     else:
         return {"error": "ไม่สามารถดึงข้อมูลได้", "status": response.status_code}
-    
