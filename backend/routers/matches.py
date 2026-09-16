@@ -92,11 +92,13 @@ def get_player_matches(name: str, tag: str, mode: str = "All"):
                         "name": player['name'],
                         "tag": player['tag'],
                         "team": player['team'],
+                        "party_id": player.get('party_id'),
                         "agent": player['character'],
                         "rank": raw_rank,
                         "stats": {
                             "acs": acs, "kills": kills, "deaths": deaths, "assists": assists,
-                            "plus_minus": plus_minus, "kd": kd_ratio, "adr": adr, "hs_percent": hs_percent
+                            "plus_minus": plus_minus, "kd": kd_ratio, "adr": adr, "hs_percent": hs_percent,
+                            "headshots": headshots, "bodyshots": bodyshots, "legshots": legshots
                         }
                     })
                         
@@ -112,7 +114,8 @@ def get_player_matches(name: str, tag: str, mode: str = "All"):
                         "agent": target_player_stats['character'],
                         "raw_stats": {
                             "kills": stats['kills'], "deaths": stats['deaths'], 
-                            "assists": stats['assists'], "headshots": stats['headshots']
+                            "assists": stats['assists'], "headshots": stats['headshots'],
+                            "bodyshots": stats.get('bodyshots', 0), "legshots": stats.get('legshots', 0)
                         },
                         "analysis": {"kda_ratio": kda_val, "performance_score": score_val, "grade": grade},
                         "teams": {"red": red_score, "blue": blue_score},

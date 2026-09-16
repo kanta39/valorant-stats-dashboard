@@ -1,4 +1,9 @@
 import { useState, useEffect } from 'react'
+import OverviewTab from './components/tabs/OverviewTab'
+import AgentsTab from './components/tabs/AgentsTab'
+import MapsTab from './components/tabs/MapsTab'
+import ScoreboardModal from './components/ScoreboardModal'
+import HitMatrixCard from './components/HitMatrixCard'
 
 const VALORANT_MODES = [
   { id: 'All', name: 'ทุกโหมด (All Modes)' },
@@ -24,8 +29,12 @@ function App() {
   
   const [agentRoles, setAgentRoles] = useState({})
   const [roleIcons, setRoleIcons] = useState({})
+  const [agentDetails, setAgentDetails] = useState({})
+  const [mapDetails, setMapDetails] = useState({})
   
   const [selectedMatch, setSelectedMatch] = useState(null)
+  const [initialModalAgent, setInitialModalAgent] = useState(null)
+  const [initialModalMap, setInitialModalMap] = useState(null)
 
   // 🔥 1. เพิ่ม State สำหรับเก็บสถานะการเรียงข้อมูล (Sorting)
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'default' });
@@ -38,18 +47,51 @@ function App() {
         const imageMap = {};
         const roleMap = {};
         const rIconMap = {};
+        const detailsMap = {};
         data.data.forEach(agent => {
           imageMap[agent.displayName] = agent.displayIcon;
           if (agent.role) {
             roleMap[agent.displayName] = agent.role.displayName;
             rIconMap[agent.role.displayName] = agent.role.displayIcon;
           }
+          detailsMap[agent.displayName] = {
+            name: agent.displayName,
+            description: agent.description,
+            icon: agent.displayIcon,
+            bustPortrait: agent.bustPortrait,
+            fullPortrait: agent.fullPortrait || agent.bustPortrait || agent.displayIcon,
+            background: agent.background,
+            gradientColors: agent.backgroundGradientColors || [],
+            role: agent.role?.displayName || 'Unknown',
+            roleIcon: agent.role?.displayIcon,
+            voiceLine: agent.voiceLine?.mediaList?.[0]?.wave || null
+          };
         });
         setAgentImages(imageMap);
         setAgentRoles(roleMap);
         setRoleIcons(rIconMap);
+        setAgentDetails(detailsMap);
       })
       .catch(err => console.error("โหลดรูป Agent ไม่สำเร็จ:", err));
+
+    fetch('https://valorant-api.com/v1/maps')
+      .then(res => res.json())
+      .then(data => {
+        if (!data || !data.data) return;
+        const mMap = {};
+        data.data.forEach(m => {
+          if (m.displayName) {
+            mMap[m.displayName.toLowerCase()] = {
+              name: m.displayName,
+              splash: m.splash,
+              displayIcon: m.displayIcon,
+              tacticalDescription: m.tacticalDescription
+            };
+          }
+        });
+        setMapDetails(mMap);
+      })
+      .catch(err => console.error("โหลดข้อมูล Map ไม่สำเร็จ:", err));
 
     fetch('https://valorant-api.com/v1/competitivetiers')
       .then(res => res.json())
@@ -112,33 +154,6 @@ const response = await fetch(`https://val-stats-api.onrender.com/api/matches/${r
       ? playerData.match_history 
       : playerData.match_history.filter(m => String(m.mode || "unknown").toLowerCase().replace(/\s/g, '') === filterMode.toLowerCase().replace(/\s/g, ''))
   );
-
-  const getRoundIcon = (endType) => {
-    const iconClass = "w-5 h-5 md:w-6 md:h-6 drop-shadow-sm";
-    switch(endType) {
-      case 'Eliminated': 
-        return (
-          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="9"></circle>
-            <path d="M8.5 8.5l7 7M15.5 8.5l-7 7"></path>
-          </svg>
-        );
-      case 'Bomb defused': 
-      case 'Bomb detonated': 
-        return (
-          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 2.5L5.5 13l3.5 7.5 9-4.5 1.5-6.5-7.5-7z"></path>
-          </svg>
-        );
-      case 'Time out': 
-      default: 
-        return (
-          <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="9"></circle>
-          </svg>
-        );
-    }
-  }
 
   const getOverallStats = () => {
     if (displayedMatches.length === 0) return null;
@@ -222,7 +237,21 @@ const response = await fetch(`https://val-stats-api.onrender.com/api/matches/${r
 
       const agent = match.agent || "Unknown"; 
       if (!stats[agent]) {
-        stats[agent] = { name: agent, w: 0, l: 0, d: 0, k: 0, death: 0, a: 0, matches: 0 };
+        stats[agent] = { 
+          name: agent, 
+          w: 0, 
+          l: 0, 
+          d: 0, 
+          k: 0, 
+          death: 0, 
+          a: 0, 
+          matches: 0,
+          totalAcs: 0,
+          totalAdr: 0,
+          totalHs: 0,
+          maps: {},
+          recentMatches: []
+        };
       }
 
       stats[agent].matches += 1;
@@ -230,17 +259,112 @@ const response = await fetch(`https://val-stats-api.onrender.com/api/matches/${r
       stats[agent].death += match.raw_stats?.deaths || 0;
       stats[agent].a += match.raw_stats?.assists || 0;
 
+      const pStats = myPlayer.stats || {};
+      stats[agent].totalAcs += (pStats.acs || 0);
+      stats[agent].totalAdr += (pStats.adr || 0);
+      stats[agent].totalHs += (pStats.hs_percent || 0);
+
       const myTeam = myPlayer.team;
       const redScore = match.teams?.red || 0;
       const blueScore = match.teams?.blue || 0;
 
-      if (redScore === blueScore) stats[agent].d += 1;
-      else if (redScore > blueScore && myTeam === 'Red') stats[agent].w += 1;
-      else if (blueScore > redScore && myTeam === 'Blue') stats[agent].w += 1;
-      else stats[agent].l += 1;
+      let matchResult = 'L';
+      if (redScore === blueScore) {
+        stats[agent].d += 1;
+        matchResult = 'D';
+      } else if ((redScore > blueScore && myTeam === 'Red') || (blueScore > redScore && myTeam === 'Blue')) {
+        stats[agent].w += 1;
+        matchResult = 'W';
+      } else {
+        stats[agent].l += 1;
+        matchResult = 'L';
+      }
+
+      // สถิติแยกตามด่าน
+      const mapName = match.map || "Unknown Map";
+      if (!stats[agent].maps[mapName]) {
+        stats[agent].maps[mapName] = { name: mapName, matches: 0, w: 0, l: 0, d: 0 };
+      }
+      stats[agent].maps[mapName].matches += 1;
+      if (matchResult === 'W') stats[agent].maps[mapName].w += 1;
+      else if (matchResult === 'L') stats[agent].maps[mapName].l += 1;
+      else stats[agent].maps[mapName].d += 1;
+
+      // ประวัติแมตช์ล่าสุดของตัวละครนี้
+      stats[agent].recentMatches.push({
+        match_id: match.match_id,
+        map: mapName,
+        mode: match.mode,
+        result: matchResult,
+        kills: match.raw_stats?.kills || 0,
+        deaths: match.raw_stats?.deaths || 0,
+        assists: match.raw_stats?.assists || 0,
+        acs: pStats.acs || 0,
+        adr: pStats.adr || 0,
+        hs_percent: pStats.hs_percent || 0,
+        redScore,
+        blueScore,
+        myTeam,
+        matchRaw: match
+      });
     });
 
-    return Object.values(stats).sort((a, b) => b.matches - a.matches);
+    const totalAllMatches = displayedMatches.length;
+
+    return Object.values(stats).map(agent => {
+      const winRate = agent.matches > 0 ? ((agent.w / agent.matches) * 100) : 0;
+      const avgAcs = agent.matches > 0 ? Math.round(agent.totalAcs / agent.matches) : 0;
+      const avgAdr = agent.matches > 0 ? Math.round(agent.totalAdr / agent.matches) : 0;
+      const avgHs = agent.matches > 0 ? Math.round(agent.totalHs / agent.matches) : 0;
+      const kd = agent.death > 0 ? Number((agent.k / agent.death).toFixed(2)) : agent.k;
+      const kda = agent.death > 0 ? Number(((agent.k + agent.a) / agent.death).toFixed(2)) : (agent.k + agent.a);
+      const role = agentRoles[agent.name] || 'Unknown';
+
+      // คำนวณ Badges ฉายาตามสถิติจริง
+      const badges = [];
+      if (agent.matches >= 3 && (agent.matches / totalAllMatches) >= 0.35) {
+        badges.push({ label: 'One-Trick', icon: '🦄', desc: 'เล่นตัวนี้เกิน 35% ของเกมทั้งหมด', color: 'border-pink-500/40 text-pink-400 bg-pink-500/10' });
+      }
+      if (agent.matches >= 3 && winRate >= 60 && avgAcs >= 210) {
+        badges.push({ label: 'Signature Pick', icon: '👑', desc: 'ตัวหลักประจำตัว วินเรตสูงและแบกทีมได้ดี', color: 'border-yellow-500/40 text-yellow-400 bg-yellow-500/10' });
+      }
+      if (agent.matches >= 2 && winRate === 100) {
+        badges.push({ label: 'Pocket Pick', icon: '🍀', desc: 'ตัวลับไร้พ่าย เล่นแล้วชนะ 100%', color: 'border-emerald-500/40 text-emerald-400 bg-emerald-500/10' });
+      }
+      if (agent.matches >= 2 && avgHs >= 25) {
+        badges.push({ label: 'Headshot God', icon: '🎯', desc: 'อัตรายิงหัวเฉลี่ยสูงเกิน 25%', color: 'border-purple-500/40 text-purple-400 bg-purple-500/10' });
+      }
+      if (kd >= 1.25 && avgAcs >= 225) {
+        badges.push({ label: 'Impact Fragger', icon: '⚡', desc: 'ทำผลงานสังหารศัตรูได้อย่างดุดัน', color: 'border-red-500/40 text-red-400 bg-red-500/10' });
+      }
+      if (agent.matches >= 3 && winRate < 40) {
+        badges.push({ label: 'Needs Warmup', icon: '🩹', desc: 'วินเรตต่ำกว่า 40% อาจต้องปรับแผนการเล่น', color: 'border-gray-600 text-gray-400 bg-gray-800/40' });
+      }
+      if ((role === 'Controller' || role === 'Sentinel') && winRate >= 50 && agent.matches >= 2) {
+        badges.push({ label: 'Team Anchor', icon: '🛡️', desc: 'เสาหลักของทีม เล่นสายซัพพอร์ตคว้าชัยชนะ', color: 'border-cyan-500/40 text-cyan-400 bg-cyan-500/10' });
+      }
+
+      // จัดเรียงด่านที่ดีที่สุดสำหรับตัวละครนี้
+      const mapList = Object.values(agent.maps).sort((a, b) => {
+        const wrA = (a.w / a.matches);
+        const wrB = (b.w / b.matches);
+        if (wrB !== wrA) return wrB - wrA;
+        return b.matches - a.matches;
+      });
+
+      return {
+        ...agent,
+        winRate,
+        avgAcs,
+        avgAdr,
+        avgHs,
+        kd,
+        kda,
+        role,
+        badges,
+        mapList
+      };
+    }).sort((a, b) => b.matches - a.matches);
   }
 
   const getMapStats = () => {
@@ -255,7 +379,21 @@ const response = await fetch(`https://val-stats-api.onrender.com/api/matches/${r
 
       const mapName = match.map || "Unknown Map"; 
       if (!stats[mapName]) {
-        stats[mapName] = { name: mapName, w: 0, l: 0, d: 0, matches: 0 };
+        stats[mapName] = { 
+          name: mapName, 
+          w: 0, 
+          l: 0, 
+          d: 0, 
+          matches: 0,
+          roundsWon: 0,
+          roundsLost: 0,
+          totalAcs: 0,
+          totalKills: 0,
+          totalDeaths: 0,
+          totalAssists: 0,
+          agentsPlayed: {},
+          recentMatches: []
+        };
       }
 
       stats[mapName].matches += 1;
@@ -263,25 +401,138 @@ const response = await fetch(`https://val-stats-api.onrender.com/api/matches/${r
       const myTeam = myPlayer.team;
       const redScore = match.teams?.red || 0;
       const blueScore = match.teams?.blue || 0;
+      const myScore = myTeam === 'Red' ? redScore : blueScore;
+      const enemyScore = myTeam === 'Red' ? blueScore : redScore;
 
-      if (redScore === blueScore) stats[mapName].d += 1;
-      else if (redScore > blueScore && myTeam === 'Red') stats[mapName].w += 1;
-      else if (blueScore > redScore && myTeam === 'Blue') stats[mapName].w += 1;
-      else stats[mapName].l += 1;
+      stats[mapName].roundsWon += myScore;
+      stats[mapName].roundsLost += enemyScore;
+
+      let matchResult = 'L';
+      if (redScore === blueScore) {
+        stats[mapName].d += 1;
+        matchResult = 'D';
+      } else if ((redScore > blueScore && myTeam === 'Red') || (blueScore > redScore && myTeam === 'Blue')) {
+        stats[mapName].w += 1;
+        matchResult = 'W';
+      } else {
+        stats[mapName].l += 1;
+        matchResult = 'L';
+      }
+
+      const pStats = myPlayer.stats || {};
+      stats[mapName].totalAcs += (pStats.acs || 0);
+      stats[mapName].totalKills += (pStats.kills || 0);
+      stats[mapName].totalDeaths += (pStats.deaths || 0);
+      stats[mapName].totalAssists += (pStats.assists || 0);
+
+      // บันทึก Agent ที่เล่นในด่านนี้
+      const agentPlayed = match.agent || myPlayer.agent || "Unknown";
+      if (!stats[mapName].agentsPlayed[agentPlayed]) {
+        stats[mapName].agentsPlayed[agentPlayed] = {
+          name: agentPlayed,
+          matches: 0,
+          w: 0,
+          l: 0,
+          d: 0,
+          acsSum: 0,
+          kills: 0,
+          deaths: 0
+        };
+      }
+      stats[mapName].agentsPlayed[agentPlayed].matches += 1;
+      stats[mapName].agentsPlayed[agentPlayed].acsSum += (pStats.acs || 0);
+      stats[mapName].agentsPlayed[agentPlayed].kills += (pStats.kills || 0);
+      stats[mapName].agentsPlayed[agentPlayed].deaths += (pStats.deaths || 0);
+      if (matchResult === 'W') stats[mapName].agentsPlayed[agentPlayed].w += 1;
+      else if (matchResult === 'L') stats[mapName].agentsPlayed[agentPlayed].l += 1;
+      else stats[mapName].agentsPlayed[agentPlayed].d += 1;
+
+      // บันทึกแมตช์ล่าสุดในด่านนี้
+      stats[mapName].recentMatches.push({
+        match_id: match.match_id,
+        mode: match.mode,
+        result: matchResult,
+        myScore,
+        enemyScore,
+        agent: agentPlayed,
+        kills: pStats.kills || 0,
+        deaths: pStats.deaths || 0,
+        assists: pStats.assists || 0,
+        acs: pStats.acs || 0,
+        matchRaw: match
+      });
     });
 
-    return Object.values(stats).sort((a, b) => b.matches - a.matches);
+    return Object.values(stats).map(mapData => {
+      const winRate = mapData.matches > 0 ? ((mapData.w / mapData.matches) * 100) : 0;
+      const roundDiff = mapData.roundsWon - mapData.roundsLost;
+      const avgAcs = mapData.matches > 0 ? Math.round(mapData.totalAcs / mapData.matches) : 0;
+      const kd = mapData.totalDeaths > 0 ? Number((mapData.totalKills / mapData.totalDeaths).toFixed(2)) : mapData.totalKills;
+
+      // จัดอันดับ Agent ในด่านนี้เพื่อหา Best Pick
+      const agentList = Object.values(mapData.agentsPlayed).map(ag => ({
+        ...ag,
+        winRate: ag.matches > 0 ? ((ag.w / ag.matches) * 100) : 0,
+        avgAcs: ag.matches > 0 ? Math.round(ag.acsSum / ag.matches) : 0,
+        kd: ag.deaths > 0 ? Number((ag.kills / ag.deaths).toFixed(2)) : ag.kills
+      })).sort((a, b) => {
+        if (b.winRate !== a.winRate) return b.winRate - a.winRate;
+        if (b.matches !== a.matches) return b.matches - a.matches;
+        return b.avgAcs - a.avgAcs;
+      });
+
+      const bestAgent = agentList.length > 0 ? agentList[0] : null;
+
+      // คำนวณ Map Destiny Badges
+      const badges = [];
+      if (winRate >= 65 && mapData.matches >= 2) {
+        badges.push({ label: 'Free Elo / ด่านบุญ', icon: '🏰', desc: 'วินเรตเกิน 65% ด่านแจกแต้มประจำตัว', color: 'border-green-500/40 text-green-400 bg-green-500/10' });
+      } else if (winRate === 0 && mapData.matches >= 2) {
+        badges.push({ label: 'Dodge Recommend!', icon: '🚨', desc: 'ยังไม่เคยชนะด่านนี้ แนะนำให้ดอดจ์แบบกวนๆ', color: 'border-red-500/40 text-red-400 bg-red-500/10' });
+      } else if (winRate <= 35 && mapData.matches >= 3) {
+        badges.push({ label: 'Cursed / ด่านกรรม', icon: '💀', desc: 'วินเรตต่ำกว่า 35% ด่านเจ้ากรรมนายเวร', color: 'border-orange-500/40 text-orange-400 bg-orange-500/10' });
+      } else if (mapData.matches >= 4 && winRate >= 50) {
+        badges.push({ label: 'Comfort Map', icon: '⚔️', desc: 'ลงเล่นบ่อยและคว้าชัยชนะได้สม่ำเสมอ', color: 'border-blue-500/40 text-blue-400 bg-blue-500/10' });
+      } else if (winRate >= 45 && winRate <= 55 && mapData.matches >= 2) {
+        badges.push({ label: 'Coin Flip', icon: '⚖️', desc: 'ผลงาน 50-50 สูสีวัดดวง', color: 'border-yellow-500/40 text-yellow-400 bg-yellow-500/10' });
+      }
+
+      return {
+        ...mapData,
+        winRate,
+        roundDiff,
+        avgAcs,
+        kd,
+        agentList,
+        bestAgent,
+        badges
+      };
+    }).sort((a, b) => b.matches - a.matches);
   }
 
   const getPartyStats = () => {
-    if (displayedMatches.length === 0) return [];
+    if (displayedMatches.length === 0) {
+      return { 
+        friends: [], 
+        soloStats: { matches: 0, wins: 0, losses: 0, winRate: 0 }, 
+        partyStats: { matches: 0, wins: 0, losses: 0, winRate: 0 } 
+      };
+    }
     
     const stats = {};
     const targetName = activeSearchQuery.split('#')[0].toLowerCase();
 
+    let soloMatches = 0;
+    let soloWins = 0;
+    let soloLosses = 0;
+
+    let partyMatches = 0;
+    let partyWins = 0;
+    let partyLosses = 0;
+
     displayedMatches.forEach(match => {
       const myPlayer = match.scoreboard?.find(p => String(p.name || "").toLowerCase() === targetName);
-      if (!myPlayer || !myPlayer.party_id) return;
+      if (!myPlayer) return;
 
       const myPartyId = myPlayer.party_id;
       const myTeam = myPlayer.team;
@@ -292,9 +543,19 @@ const response = await fetch(`https://val-stats-api.onrender.com/api/matches/${r
       const isDraw = redScore === blueScore;
 
       // หาเพื่อนทุกคนที่ party_id ตรงกับเรา (แต่ไม่ใช่ตัวเราเอง)
-      const partyMembers = match.scoreboard?.filter(p => 
+      const partyMembers = myPartyId ? (match.scoreboard?.filter(p => 
         p.party_id === myPartyId && String(p.name || "").toLowerCase() !== targetName
-      ) || [];
+      ) || []) : [];
+
+      if (partyMembers.length === 0) {
+        soloMatches += 1;
+        if (isWin) soloWins += 1;
+        else if (!isDraw) soloLosses += 1;
+      } else {
+        partyMatches += 1;
+        if (isWin) partyWins += 1;
+        else if (!isDraw) partyLosses += 1;
+      }
 
       partyMembers.forEach(friend => {
         const friendKey = `${friend.name}#${friend.tag}`;
@@ -319,8 +580,41 @@ const response = await fetch(`https://val-stats-api.onrender.com/api/matches/${r
       });
     });
 
-    // เรียงคนที่เล่นด้วยบ่อยสุดขึ้นก่อน แล้วตัดเอามาโชว์แค่ 5 อันดับแรก (Top 5)
-    return Object.values(stats).sort((a, b) => b.matches - a.matches).slice(0, 5);
+    const soloWinRate = soloMatches > 0 ? Math.round((soloWins / soloMatches) * 100) : 0;
+    const partyWinRate = partyMatches > 0 ? Math.round((partyWins / partyMatches) * 100) : 0;
+
+    const friends = Object.values(stats).map(friend => {
+      const winRate = friend.matches > 0 ? Math.round((friend.wins / friend.matches) * 100) : 0;
+      let badge = { 
+        label: 'Combat Partner', 
+        icon: '⚔️', 
+        color: 'border-blue-500/30 text-blue-400 bg-blue-500/10' 
+      };
+      if (winRate >= 60 && friend.matches >= 2) {
+        badge = { 
+          label: 'Dream Duo', 
+          icon: '🔥', 
+          color: 'border-emerald-500/40 text-emerald-400 bg-emerald-500/15 shadow-[0_0_8px_rgba(16,185,129,0.2)]' 
+        };
+      } else if (winRate <= 40 && friend.matches >= 2) {
+        badge = { 
+          label: 'Cursed Duo', 
+          icon: '💀', 
+          color: 'border-red-500/40 text-red-400 bg-red-500/15' 
+        };
+      }
+      return {
+        ...friend,
+        winRate,
+        badge
+      };
+    }).sort((a, b) => b.matches - a.matches).slice(0, 5);
+
+    return {
+      friends,
+      soloStats: { matches: soloMatches, wins: soloWins, losses: soloLosses, winRate: soloWinRate },
+      partyStats: { matches: partyMatches, wins: partyWins, losses: partyLosses, winRate: partyWinRate }
+    };
   }
 
   // 🔥 2. ฟังก์ชันจัดการการคลิกเรียงข้อมูล 3 จังหวะ
@@ -336,207 +630,22 @@ const response = await fetch(`https://val-stats-api.onrender.com/api/matches/${r
   };
 
   // 🔥 ไอคอนแสดงลูกศรขึ้นลง
+  // 🔥 ไอคอนแสดงลูกศรขึ้นลง (แสดงต่อท้ายในบรรทัดเดียวกันเสมอ)
   const renderSortIcon = (key) => {
-    if (sortConfig.key !== key || sortConfig.direction === 'default') return <span className="inline-block ml-1 text-gray-700 text-[10px] font-normal">↕</span>;
+    if (sortConfig.key !== key || sortConfig.direction === 'default') {
+      return <span className="inline-block ml-1 text-gray-500 text-[11px] font-normal select-none">↕</span>;
+    }
     return sortConfig.direction === 'asc' 
-      ? <span className="inline-block ml-1 text-white text-[10px] font-black">↑</span> 
-      : <span className="inline-block ml-1 text-white text-[10px] font-black">↓</span>;
+      ? <span className="inline-block ml-1 text-yellow-400 text-[11px] font-black select-none">↑</span> 
+      : <span className="inline-block ml-1 text-yellow-400 text-[11px] font-black select-none">↓</span>;
   };
 
   const overallStats = getOverallStats();
   const roleStatsArray = getRoleStats();
   const agentStatsArray = getAgentStats();
   const mapStatsArray = getMapStats();
-  const partyStatsArray = getPartyStats();
-
-  const renderTeamTable = (teamName, teamData, teamColorClass, bgColorClass, targetPlayerName, matchMode) => {
-    if (!teamData || teamData.length === 0) return null;
-    
-    // 🔥 3. ระบบนำค่าจาก sortConfig มาเรียงข้อมูลในตาราง
-    let sortedTeam = [...teamData];
-    if (sortConfig.key && sortConfig.direction !== 'default') {
-      sortedTeam.sort((a, b) => {
-        let valA = Number(a.stats?.[sortConfig.key] || 0);
-        let valB = Number(b.stats?.[sortConfig.key] || 0);
-        return sortConfig.direction === 'asc' ? valA - valB : valB - valA;
-      });
-    } else {
-      sortedTeam.sort((a, b) => (b.stats?.acs || 0) - (a.stats?.acs || 0)); // Default
-    }
-
-    const showRank = String(matchMode || "").toLowerCase() === 'competitive';
-
-    return (
-      <div className="w-full overflow-x-auto mb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-        <table className="w-full text-left border-collapse min-w-[1000px] tabular-nums">
-          <thead>
-            <tr className={`text-xs uppercase tracking-widest text-gray-400 border-b-2 border-gray-700 ${bgColorClass}`}>
-              <th className="py-3 px-4 rounded-tl-md w-16">Agent</th>
-              <th className="py-3 px-4 w-full">Player</th>
-              {showRank && <th className="py-3 px-4 text-center w-24">Rank</th>}
-              <th className="py-3 px-4 text-center w-24 cursor-pointer hover:text-white transition-colors select-none" onClick={() => handleSort('acs')}>ACS {renderSortIcon('acs')}</th>
-              <th className="py-3 px-4 text-center w-16 cursor-pointer hover:text-white transition-colors select-none" onClick={() => handleSort('kills')}>K {renderSortIcon('kills')}</th>
-              <th className="py-3 px-4 text-center w-16 cursor-pointer hover:text-white transition-colors select-none" onClick={() => handleSort('deaths')}>D {renderSortIcon('deaths')}</th>
-              <th className="py-3 px-4 text-center w-16 cursor-pointer hover:text-white transition-colors select-none" onClick={() => handleSort('assists')}>A {renderSortIcon('assists')}</th>
-              <th className="py-3 px-4 text-center w-24 cursor-pointer hover:text-white transition-colors select-none" onClick={() => handleSort('kd')}>K/D {renderSortIcon('kd')}</th>
-              <th className="py-3 px-4 text-center w-24 cursor-pointer hover:text-white transition-colors select-none" onClick={() => handleSort('adr')}>ADR {renderSortIcon('adr')}</th>
-              <th className="py-3 px-4 text-center rounded-tr-md w-24 cursor-pointer hover:text-white transition-colors select-none" onClick={() => handleSort('hs_percent')}>HS% {renderSortIcon('hs_percent')}</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-800/40">
-            {sortedTeam.map((player, idx) => {
-              const isMe = String(player.name || "").toLowerCase() === String(targetPlayerName || "").toLowerCase();
-              const kdColor = (player.stats?.kd || 0) >= 1 ? "text-green-400" : "text-red-400";
-              const rawRank = player.rank || "Unranked";
-              const rankKey = String(rawRank).toLowerCase().replace(/\s/g, '');
-              const rankIcon = rankImages[rankKey] || rankImages["unranked"];
-              
-              return (
-                <tr key={idx} className={`hover:bg-gray-800/40 transition-colors ${isMe ? 'bg-gray-800/60 border-l-4 border-yellow-500' : 'border-l-4 border-transparent'}`}>
-                  <td className="py-2.5 px-4">
-                    <div className="w-10 h-10 bg-gray-900 rounded border border-gray-700 p-0.5">
-                      {agentImages[player.agent] ? ( <img src={agentImages[player.agent]} alt={player.agent} className="w-full h-full object-contain" /> ) : ( <div className="w-full h-full flex items-center justify-center text-[10px] font-bold">{String(player.agent || "UN").substring(0,2)}</div> )}
-                    </div>
-                  </td>
-                  <td className="py-2.5 px-4 w-full">
-                    <div className="flex items-baseline gap-2 overflow-hidden">
-                      <span className={`font-bold text-base md:text-lg tracking-wide truncate ${isMe ? 'text-yellow-400' : 'text-gray-100'}`}>{player.name || "Unknown"}</span>
-                      <span className="text-xs text-gray-500">#{player.tag || "000"}</span>
-                    </div>
-                  </td>
-                  {showRank && (
-                    <td className="py-2.5 px-4 text-center">
-                      <div className="flex justify-center items-center">
-                        {rankIcon ? ( <img src={rankIcon} alt={rawRank} title={rawRank} className="w-8 h-8 object-contain drop-shadow-[0_0_5px_rgba(255,255,255,0.05)]" /> ) : ( <span className="text-xs font-medium text-gray-400 bg-gray-900 px-2 py-1 rounded border border-gray-800 whitespace-nowrap">{rawRank}</span> )}
-                      </div>
-                    </td>
-                  )}
-                  <td className="py-2.5 px-4 text-center font-bold text-gray-200 text-base">{player.stats?.acs || 0}</td>
-                  <td className="py-2.5 px-4 text-center font-black text-green-400/90 text-base">{player.stats?.kills || 0}</td>
-                  <td className="py-2.5 px-4 text-center font-black text-red-400/90 text-base">{player.stats?.deaths || 0}</td>
-                  <td className="py-2.5 px-4 text-center font-black text-blue-400/90 text-base">{player.stats?.assists || 0}</td>
-                  <td className={`py-2.5 px-4 text-center font-bold text-base ${kdColor}`}>{Number(player.stats?.kd || 0).toFixed(2)}</td>
-                  <td className="py-2.5 px-4 text-center font-bold text-gray-300 text-base">{player.stats?.adr || 0}</td>
-                  <td className="py-2.5 px-4 text-center font-bold text-gray-300 text-base">{player.stats?.hs_percent || 0}%</td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-    )
-  }
-
-  const renderUnifiedTable = (scoreboardData, targetPlayerName, matchMode) => {
-    if (!scoreboardData || scoreboardData.length === 0) return null;
-    
-    let sortedData = [...scoreboardData];
-    if (sortConfig.key && sortConfig.direction !== 'default') {
-      sortedData.sort((a, b) => {
-        let valA = Number(a.stats?.[sortConfig.key] || 0);
-        let valB = Number(b.stats?.[sortConfig.key] || 0);
-        return sortConfig.direction === 'asc' ? valA - valB : valB - valA;
-      });
-    } else {
-      sortedData.sort((a, b) => (b.stats?.acs || 0) - (a.stats?.acs || 0)); // Default
-    }
-
-    const showRank = String(matchMode || "").toLowerCase() === 'competitive';
-
-    return (
-      <div className="w-full overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-        <table className="w-full text-left border-collapse min-w-[1000px] tabular-nums">
-          <thead>
-            <tr className="text-xs uppercase tracking-widest text-gray-400 border-b-2 border-gray-600 bg-gray-800/30">
-              <th className="py-3 px-4 rounded-tl-md w-16">Agent</th>
-              <th className="py-3 px-4 w-full">Player</th>
-              {showRank && <th className="py-3 px-4 text-center w-24">Rank</th>}
-              <th className="py-3 px-4 text-center w-24 cursor-pointer hover:text-white transition-colors select-none" onClick={() => handleSort('acs')}>ACS {renderSortIcon('acs')}</th>
-              <th className="py-3 px-4 text-center w-16 cursor-pointer hover:text-white transition-colors select-none" onClick={() => handleSort('kills')}>K {renderSortIcon('kills')}</th>
-              <th className="py-3 px-4 text-center w-16 cursor-pointer hover:text-white transition-colors select-none" onClick={() => handleSort('deaths')}>D {renderSortIcon('deaths')}</th>
-              <th className="py-3 px-4 text-center w-16 cursor-pointer hover:text-white transition-colors select-none" onClick={() => handleSort('assists')}>A {renderSortIcon('assists')}</th>
-              <th className="py-3 px-4 text-center w-24 cursor-pointer hover:text-white transition-colors select-none" onClick={() => handleSort('kd')}>K/D {renderSortIcon('kd')}</th>
-              <th className="py-3 px-4 text-center w-24 cursor-pointer hover:text-white transition-colors select-none" onClick={() => handleSort('adr')}>ADR {renderSortIcon('adr')}</th>
-              <th className="py-3 px-4 text-center rounded-tr-md w-24 cursor-pointer hover:text-white transition-colors select-none" onClick={() => handleSort('hs_percent')}>HS% {renderSortIcon('hs_percent')}</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-800/40">
-            {sortedData.map((player, idx) => {
-              const isMe = String(player.name || "").toLowerCase() === String(targetPlayerName || "").toLowerCase();
-              const kdColor = (player.stats?.kd || 0) >= 1 ? "text-green-400" : "text-red-400";
-              const rawRank = player.rank || "Unranked";
-              const rankKey = String(rawRank).toLowerCase().replace(/\s/g, '');
-              const rankIcon = rankImages[rankKey] || rankImages["unranked"];
-
-              return (
-                <tr key={idx} className={`hover:bg-gray-800/40 transition-colors ${isMe ? 'bg-gray-800/60 border-l-4 border-yellow-500' : 'border-l-4 border-transparent'}`}>
-                  <td className="py-2.5 px-4">
-                    <div className="w-10 h-10 bg-gray-900 rounded border border-gray-700 p-0.5">
-                      {agentImages[player.agent] ? ( <img src={agentImages[player.agent]} alt={player.agent} className="w-full h-full object-contain" /> ) : ( <div className="w-full h-full flex items-center justify-center text-[10px] font-bold">{String(player.agent || "UN").substring(0,2)}</div> )}
-                    </div>
-                  </td>
-                  <td className="py-2.5 px-4 w-full">
-                    <div className="flex items-baseline gap-2 overflow-hidden">
-                      <span className={`font-bold text-base md:text-lg tracking-wide truncate ${isMe ? 'text-yellow-400' : 'text-gray-100'}`}>{player.name || "Unknown"}</span>
-                      <span className="text-xs text-gray-600">#{player.tag || "000"}</span>
-                    </div>
-                  </td>
-                  {showRank && (
-                    <td className="py-2.5 px-4 text-center">
-                      <div className="flex justify-center items-center">
-                        {rankIcon ? ( <img src={rankIcon} alt={rawRank} title={rawRank} className="w-8 h-8 object-contain drop-shadow-[0_0_5px_rgba(255,255,255,0.05)]" /> ) : ( <span className="text-xs font-medium text-gray-400 bg-gray-900 px-2 py-1 rounded border border-gray-800 whitespace-nowrap">{rawRank}</span> )}
-                      </div>
-                    </td>
-                  )}
-                  <td className="py-2.5 px-4 text-center font-bold text-gray-200 text-base">{player.stats?.acs || 0}</td>
-                  <td className="py-2.5 px-4 text-center font-black text-green-400/90 text-base">{player.stats?.kills || 0}</td>
-                  <td className="py-2.5 px-4 text-center font-black text-red-400/90 text-base">{player.stats?.deaths || 0}</td>
-                  <td className="py-2.5 px-4 text-center font-black text-blue-400/90 text-base">{player.stats?.assists || 0}</td>
-                  <td className={`py-2.5 px-4 text-center font-bold text-base ${kdColor}`}>{Number(player.stats?.kd || 0).toFixed(2)}</td>
-                  <td className="py-2.5 px-4 text-center font-bold text-gray-300 text-base">{player.stats?.adr || 0}</td>
-                  <td className="py-2.5 px-4 text-center font-bold text-gray-300 text-base">{player.stats?.hs_percent || 0}%</td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-    )
-  }
-
-  // 🔥 4. สร้างตัวแปรดึงสถานะฝั่งของเรา (My Team) ให้ชัวร์ก่อนเอาไปโชว์
-  const targetPlayerName = activeSearchQuery.split('#')[0].toLowerCase();
-  const myPlayerInMatch = selectedMatch?.scoreboard?.find(p => String(p.name || "").toLowerCase() === targetPlayerName);
-  const myTeam = myPlayerInMatch ? myPlayerInMatch.team : 'Blue';
-  const otherTeam = myTeam === 'Blue' ? 'Red' : 'Blue';
-  
-  const myTeamScore = selectedMatch?.teams?.[myTeam.toLowerCase()] || 0;
-  const otherTeamScore = selectedMatch?.teams?.[otherTeam.toLowerCase()] || 0;
-
-  // สร้างฟังก์ชันวาด Timeline สลับสีให้อัตโนมัติ
-  const renderTimelineRow = (team, score, title) => {
-    const isBlue = team === 'Blue';
-    const colorClass = isBlue ? 'text-blue-400' : 'text-red-400';
-    const winIconColor = isBlue ? 'text-teal-400' : 'text-[#ff4655]';
-    
-    return (
-      <div className="flex items-center w-full">
-        <div className={`w-24 md:w-28 text-sm font-bold ${colorClass} flex justify-between items-center pr-4 border-r border-gray-700`}>
-          <span className="uppercase tracking-wide">{title}</span>
-          <span className="text-2xl font-black tabular-nums">{score}</span>
-        </div>
-        <div className="flex flex-1 gap-1.5 md:gap-2 ml-4">
-          {selectedMatch?.round_history?.map(r => (
-            <div key={r.round_num} className="flex-1 flex justify-center items-center h-8">
-              {r.winning_team === team 
-                ? <span className={`${winIconColor} font-black drop-shadow-[0_0_5px_rgba(255,255,255,0.4)]`}>{getRoundIcon(r.end_type)}</span> 
-                : <span className="w-1.5 h-1.5 rounded-full bg-gray-600/50"></span>}
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
+  const partyData = getPartyStats();
+  const partyStatsArray = partyData.friends;
 
   return (
     <div className="min-h-screen bg-gray-950 text-white font-sans transition-all duration-500 flex flex-col relative">
@@ -664,6 +773,14 @@ const response = await fetch(`https://val-stats-api.onrender.com/api/matches/${r
               </div>
             )}
 
+            {/* 🎯 HIT DISTRIBUTION MATRIX (Aim Profile) */}
+            {displayedMatches.length > 0 && (
+              <HitMatrixCard 
+                matches={displayedMatches} 
+                activeSearchQuery={activeSearchQuery} 
+              />
+            )}
+
             {/* ROLES PERFORMANCE */}
             <div className="bg-[#111823] border border-gray-800/80 rounded-2xl p-5 shadow-xl animate-fade-in">
               <h3 className="text-white text-base font-black tracking-widest uppercase mb-4 flex items-center gap-2">
@@ -718,21 +835,65 @@ const response = await fetch(`https://val-stats-api.onrender.com/api/matches/${r
                 )}
               </div>
             </div>
-            {/* 👥 PARTY / TEAMMATES INSIGHTS */}
-            <div className="bg-[#111823] border border-gray-800/80 rounded-2xl p-5 shadow-xl animate-fade-in">
-              <h3 className="text-white text-base font-black tracking-widest uppercase mb-4 flex items-center gap-2">
-                <span className="text-green-400">👥</span> PARTY DUO & FRIENDS
-              </h3>
 
-              <div className="flex flex-col gap-3">
+            {/* 👥 DUO SYNERGY & PARTY INTELLIGENCE */}
+            <div className="bg-[#111823] border border-gray-800/80 rounded-2xl p-5 shadow-xl animate-fade-in">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-white text-base font-black tracking-widest uppercase flex items-center gap-2">
+                  <span className="text-green-400">👥</span> PARTY INTELLIGENCE
+                </h3>
+              </div>
+
+              {/* ⚖️ Solo vs Party Win Rate Comparison */}
+              {(partyData.soloStats.matches > 0 || partyData.partyStats.matches > 0) && (
+                <div className="mb-4 bg-gray-950/60 p-3 rounded-xl border border-gray-800/80">
+                  <div className="flex items-center justify-between text-[11px] font-bold mb-1.5">
+                    <span className="text-gray-300 flex items-center gap-1">
+                      <span>👤 Solo</span>
+                      <span className="text-gray-500 font-normal">({partyData.soloStats.matches}G)</span>
+                    </span>
+                    <span className="text-gray-300 flex items-center gap-1">
+                      <span>👥 Party</span>
+                      <span className="text-gray-500 font-normal">({partyData.partyStats.matches}G)</span>
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between font-black text-sm mb-2">
+                    <span className={partyData.soloStats.winRate >= 50 ? 'text-green-400' : 'text-red-400'}>
+                      WR {partyData.soloStats.winRate}%
+                    </span>
+                    <span className={partyData.partyStats.winRate >= 50 ? 'text-green-400' : 'text-red-400'}>
+                      WR {partyData.partyStats.winRate}%
+                    </span>
+                  </div>
+
+                  {/* Dual comparison bar */}
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <div className="w-full bg-gray-900 h-1.5 rounded-full overflow-hidden">
+                      <div 
+                        style={{ width: `${partyData.soloStats.winRate}%` }} 
+                        className={`h-full rounded-full ${partyData.soloStats.winRate >= 50 ? 'bg-green-500' : 'bg-red-500'}`} 
+                      />
+                    </div>
+                    <div className="w-full bg-gray-900 h-1.5 rounded-full overflow-hidden">
+                      <div 
+                        style={{ width: `${partyData.partyStats.winRate}%` }} 
+                        className={`h-full rounded-full ${partyData.partyStats.winRate >= 50 ? 'bg-green-500' : 'bg-red-500'}`} 
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-col gap-2.5">
                 {partyStatsArray.length > 0 ? partyStatsArray.map((friend, idx) => {
-                  const winRate = ((friend.wins / friend.matches) * 100).toFixed(1);
-                  const isLucky = Number(winRate) >= 50;
+                  const winRate = friend.winRate;
+                  const badge = friend.badge;
 
                   return (
-                    <div key={idx} className="flex items-center justify-between bg-gray-900/50 p-3 rounded-xl border border-gray-800/60 hover:bg-gray-800/50 transition-colors">
-                      <div className="flex items-center gap-3 overflow-hidden">
-                        <div className="w-10 h-10 bg-gray-950 rounded-lg border border-gray-700 p-0.5 flex-shrink-0 flex items-center justify-center">
+                    <div key={idx} className="flex items-center justify-between bg-gray-900/50 p-2.5 sm:p-3 rounded-xl border border-gray-800/60 hover:bg-gray-800/50 transition-colors">
+                      <div className="flex items-center gap-2.5 overflow-hidden">
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gray-950 rounded-lg border border-gray-700 p-0.5 flex-shrink-0 flex items-center justify-center">
                           {agentImages[friend.lastAgent] ? (
                             <img src={agentImages[friend.lastAgent]} alt={friend.lastAgent} className="w-full h-full object-contain" />
                           ) : (
@@ -740,7 +901,7 @@ const response = await fetch(`https://val-stats-api.onrender.com/api/matches/${r
                           )}
                         </div>
                         <div className="flex flex-col truncate">
-                          <p className="text-white font-bold text-sm truncate flex items-center gap-1">
+                          <p className="text-white font-bold text-xs sm:text-sm truncate flex items-center gap-1">
                             {friend.name}
                             <span className="text-[10px] text-gray-500 font-normal">#{friend.tag}</span>
                           </p>
@@ -750,21 +911,22 @@ const response = await fetch(`https://val-stats-api.onrender.com/api/matches/${r
                         </div>
                       </div>
 
-                      <div className="text-right flex flex-col justify-center flex-shrink-0 ml-2">
+                      <div className="text-right flex flex-col items-end justify-center flex-shrink-0 ml-2">
                         <span className={`text-xs font-black px-2 py-0.5 rounded border ${
-                          isLucky ? 'bg-green-500/10 text-green-400 border-green-500/30' : 'bg-red-500/10 text-red-400 border-red-500/30'
+                          winRate >= 50 ? 'bg-green-500/10 text-green-400 border-green-500/30' : 'bg-red-500/10 text-red-400 border-red-500/30'
                         }`}>
                           WR {winRate}%
                         </span>
-                        <span className="text-[9px] text-gray-500 font-bold mt-1 uppercase">
-                          {isLucky ? '✨ เพื่อนแบก' : '💀 เพื่อนแจก'}
+                        <span className={`text-[9px] font-black mt-1 px-1.5 py-0.5 rounded border flex items-center gap-1 ${badge.color}`}>
+                          <span>{badge.icon}</span>
+                          <span>{badge.label}</span>
                         </span>
                       </div>
                     </div>
                   );
                 }) : (
                   <div className="text-center text-gray-600 py-4 text-xs border border-dashed border-gray-800 rounded-xl">
-                    เล่นคนเดียว (Solo Queue) ใน 20 นัดล่าสุด
+                    เล่นคนเดียว (Solo Queue) ในแมตช์ที่แสดง
                   </div>
                 )}
               </div>
@@ -774,176 +936,61 @@ const response = await fetch(`https://val-stats-api.onrender.com/api/matches/${r
           {/* 📊 แผงด้านขวา (เนื้อหาหลัก) */}
           <div className="flex-1 w-full min-w-0 flex flex-col">
             {activeTab === "overview" && (
-              <div className="w-full space-y-4 animate-fade-in pb-10">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 border-b border-gray-800 pb-4 gap-4">
-                  <div>
-                    <h2 className="text-xl font-bold text-gray-300">ประวัติการเล่นของ <span className="text-red-400 font-extrabold">{activeSearchQuery.split('#')[0]}</span></h2>
-                    <p className="text-xs text-gray-500 mt-1">คลิกที่การ์ดเพื่อเปิดดูตาราง Scoreboard เต็มรูปแบบ</p>
-                  </div>
-                  <div className="flex items-center gap-2 w-full sm:w-auto relative">
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest hidden sm:block">Mode:</label>
-                    <select value={filterMode} onChange={handleModeChange} disabled={loading} className="bg-gray-900 text-gray-200 font-bold text-sm px-4 py-2.5 rounded-xl border border-gray-700 focus:outline-none focus:border-red-500">
-                      {VALORANT_MODES.map(mode => ( <option key={mode.id} value={mode.id}>{mode.name}</option> ))}
-                    </select>
-                    {loading && <span className="absolute -right-8 top-2.5 animate-spin text-red-500 text-xl">↻</span>}
-                  </div>
-                </div>
-
-                {displayedMatches.length === 0 && (
-                  <div className="text-center py-10 text-gray-500 border border-dashed border-gray-800 rounded-2xl">ไม่พบประวัติการเล่นในโหมดที่คุณเลือก</div>
-                )}
-
-                <div className={loading ? 'opacity-30 pointer-events-none' : 'opacity-100 space-y-4'}>
-                  {displayedMatches.map((match, index) => {
-                    return (
-                      // 🔥 ล้างค่าการเรียงลำดับเวลาเปิดแมตช์ใหม่ ให้กลับเป็นเรียงตาม ACS (Default)
-                      <div key={match.match_id || index} onClick={() => { setSelectedMatch(match); setSortConfig({ key: null, direction: 'default' }); }} className="bg-gray-900 border border-gray-800/80 p-4 sm:p-5 rounded-2xl grid grid-cols-1 sm:grid-cols-12 items-center gap-4 shadow-lg hover:border-red-500/50 hover:bg-gray-900/80 cursor-pointer transition-all tabular-nums">
-                        <div className="col-span-1 sm:col-span-5 flex items-center gap-4 sm:gap-5 w-full">
-                          <div className="flex flex-col items-center justify-center bg-gray-950/80 p-2 rounded-xl border border-gray-800 min-w-[80px]">
-                            {agentImages[match.agent] ? ( <img src={agentImages[match.agent]} alt={match.agent} className="w-12 h-12 object-contain" /> ) : ( <div className="w-12 h-12 flex items-center justify-center bg-gray-800 rounded-full text-xs font-bold border border-gray-700">{String(match.agent || "UN").substring(0, 2).toUpperCase()}</div> )}
-                            <span className="font-extrabold text-[11px] text-gray-400 mt-1 uppercase tracking-wider">{match.agent || "Unknown"}</span>
-                          </div>
-                          <div className="overflow-hidden">
-                            <h3 className="font-black text-white text-lg tracking-wide truncate">{match.map || "Unknown Map"}</h3>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="inline-block bg-gray-800 text-gray-300 text-[10px] font-bold px-2 py-0.5 rounded-md border border-gray-700">{match.mode || "Unknown Mode"}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="col-span-1 sm:col-span-4 flex flex-col items-center justify-center bg-gray-950/50 sm:bg-transparent p-3 sm:p-0 rounded-lg">
-                          <p className="text-[10px] text-gray-500 font-bold mb-1 tracking-widest uppercase">K / D / A</p>
-                          <div className="font-black text-lg text-gray-200 flex items-center justify-center">
-                            <span className="text-green-400 w-8 text-right">{match.raw_stats?.kills || 0}</span>
-                            <span className="text-gray-700 mx-2">/</span>
-                            <span className="text-red-500 w-8 text-center">{match.raw_stats?.deaths || 0}</span>
-                            <span className="text-gray-700 mx-2">/</span>
-                            <span className="text-blue-400 w-8 text-left">{match.raw_stats?.assists || 0}</span>
-                          </div>
-                          <p className="text-[11px] text-gray-400 mt-1">Ratio: <span className="text-gray-200 font-bold">{Number(match.analysis?.kda_ratio || 0).toFixed(2)}</span></p>
-                        </div>
-
-                        <div className="col-span-1 sm:col-span-3 flex justify-between sm:justify-end items-center gap-5 w-full">
-                          <div className="text-left sm:text-right">
-                            <p className="text-[10px] text-gray-500 font-bold uppercase mb-1 tracking-widest">Score</p>
-                            <p className="text-sm font-black text-gray-200 w-16">{match.analysis?.performance_score || 0}<span className="text-gray-600 text-[10px]">/100</span></p>
-                          </div>
-                          <div className="bg-gray-950 w-14 h-14 rounded-2xl flex items-center justify-center border border-gray-700 shadow-inner flex-shrink-0">
-                            <span className="text-2xl font-black text-yellow-400 drop-shadow-md">{String(match.analysis?.grade || "N/A").split(" ")[0]}</span>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
+              <OverviewTab 
+                displayedMatches={displayedMatches}
+                activeSearchQuery={activeSearchQuery}
+                filterMode={filterMode}
+                loading={loading}
+                onModeChange={handleModeChange}
+                onMatchSelect={(match) => {
+                  setSelectedMatch(match);
+                  setSortConfig({ key: null, direction: 'default' });
+                }}
+                agentImages={agentImages}
+                mapDetails={mapDetails}
+                VALORANT_MODES={VALORANT_MODES}
+              />
             )}
 
             {activeTab === "agents" && (
-              <div className="w-full space-y-6 animate-fade-in pb-10">
-                <div className="border-b border-gray-800 pb-4">
-                  <h2 className="text-2xl font-black text-white flex items-center gap-2">
-                    <span className="text-red-500">🕵️‍♂️</span> AGENT ANALYTICS
-                  </h2>
-                  <p className="text-sm text-gray-500 mt-1">สถิติการเล่นแยกตามเอเจนต์ของคุณ (จัดเรียงตามความถี่ที่เล่นบ่อยสุด)</p>
-                </div>
-
-                {agentStatsArray.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                    {agentStatsArray.map((agent, idx) => {
-                      const winRate = agent.matches > 0 ? ((agent.w / agent.matches) * 100) : 0;
-                      const kda = agent.death > 0 ? ((agent.k + agent.a) / agent.death).toFixed(2) : (agent.k + agent.a).toFixed(2);
-                      
-                      return (
-                        <div key={idx} className="bg-gray-900 border border-gray-800 rounded-2xl p-5 hover:border-red-500/50 transition-colors relative overflow-hidden group shadow-lg">
-                          <div className="absolute -right-6 -top-6 opacity-5 group-hover:opacity-20 transition-opacity">
-                            {agentImages[agent.name] && <img src={agentImages[agent.name]} alt="bg" className="w-32 h-32 object-cover scale-150" />}
-                          </div>
-                          
-                          <div className="flex items-center gap-4 relative z-10 mb-4">
-                            <div className="w-16 h-16 bg-gray-950 rounded-xl border border-gray-700 p-1 flex-shrink-0">
-                              {agentImages[agent.name] ? (
-                                <img src={agentImages[agent.name]} alt={agent.name} className="w-full h-full object-contain drop-shadow-md" />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center font-bold text-gray-600">
-                                  {String(agent.name || "UN").substring(0,2).toUpperCase()}
-                                </div>
-                              )}
-                            </div>
-                            <div>
-                              <h3 className="text-xl font-black text-white uppercase tracking-wider">{agent.name}</h3>
-                              <p className="text-xs text-gray-400 font-bold">{agentRoles[agent.name] || 'Unknown Role'}</p>
-                            </div>
-                          </div>
-                          
-                          <div className="grid grid-cols-2 gap-3 relative z-10">
-                            <div className="bg-gray-950/50 p-2 rounded-lg border border-gray-800 text-center">
-                              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Win Rate</p>
-                              <p className={`text-lg font-black ${winRate >= 50 ? 'text-green-400' : 'text-red-400'}`}>{winRate.toFixed(1)}%</p>
-                              <p className="text-[10px] text-gray-400">{agent.w}W - {agent.l}L</p>
-                            </div>
-                            <div className="bg-gray-950/50 p-2 rounded-lg border border-gray-800 text-center">
-                              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">KDA</p>
-                              <p className="text-lg font-black text-white">{kda}</p>
-                              <p className="text-[10px] font-mono text-gray-400">{agent.k}/{agent.death}/{agent.a}</p>
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-10 text-gray-500 border border-dashed border-gray-800 rounded-2xl">ไม่พบข้อมูลเอเจนต์ในโหมดนี้</div>
-                )}
-              </div>
+              <AgentsTab 
+                agentStatsArray={agentStatsArray}
+                agentImages={agentImages}
+                agentRoles={agentRoles}
+                roleIcons={roleIcons}
+                agentDetails={agentDetails}
+                onMatchSelect={(match) => {
+                  setSelectedMatch(match);
+                  setSortConfig({ key: null, direction: 'default' });
+                }}
+                onNavigateToMap={(mapName) => {
+                  setActiveTab("maps");
+                  setInitialModalMap(mapName);
+                }}
+                initialSelectedAgent={initialModalAgent}
+                onClearInitialAgent={() => setInitialModalAgent(null)}
+                mapStatsArray={mapStatsArray}
+                mapDetails={mapDetails}
+              />
             )}
 
             {activeTab === "maps" && (
-              <div className="w-full space-y-6 animate-fade-in pb-10">
-                <div className="border-b border-gray-800 pb-4">
-                  <h2 className="text-2xl font-black text-white flex items-center gap-2">
-                    <span className="text-red-500">🗺️</span> MAP WIN RATES
-                  </h2>
-                  <p className="text-sm text-gray-500 mt-1">สถิติอัตราการชนะแยกตามแผนที่ (จัดเรียงจากด่านที่เล่นบ่อยสุด)</p>
-                </div>
-
-                {mapStatsArray.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                    {mapStatsArray.map((mapData, idx) => {
-                      const winRate = mapData.matches > 0 ? ((mapData.w / mapData.matches) * 100) : 0;
-                      const winColor = winRate >= 50 ? "bg-green-500" : "bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]";
-                      const textColor = winRate >= 50 ? "text-green-400" : "text-red-400";
-                      
-                      return (
-                        <div key={idx} className="bg-[#111823] border border-gray-800/80 rounded-2xl p-6 hover:border-gray-600 transition-colors relative overflow-hidden shadow-lg flex flex-col justify-between min-h-[160px]">
-                          <div className="relative z-10 flex justify-between items-start mb-4">
-                            <div>
-                              <h3 className="text-2xl font-black text-white uppercase tracking-widest">{mapData.name}</h3>
-                              <p className="text-[11px] text-gray-500 font-bold mt-1 uppercase tracking-wider">{mapData.matches} Matches Played</p>
-                            </div>
-                            <div className={`text-2xl font-black ${textColor}`}>
-                              {winRate.toFixed(1)}%
-                            </div>
-                          </div>
-
-                          <div className="relative z-10 mt-auto">
-                            <div className="w-full h-2.5 bg-gray-900 rounded-full overflow-hidden mb-3 border border-gray-800">
-                              <div className={`h-full transition-all duration-1000 ${winColor}`} style={{ width: `${winRate}%` }}></div>
-                            </div>
-                            <div className="flex justify-between items-center text-[10px] font-black tracking-widest">
-                              <span className="text-green-400">{mapData.w} WINS</span>
-                              <span className="text-gray-600">{mapData.d} DRAWS</span>
-                              <span className="text-red-400">{mapData.l} LOSSES</span>
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-10 text-gray-500 border border-dashed border-gray-800 rounded-2xl">ไม่พบข้อมูลแผนที่ในโหมดนี้</div>
-                )}
-              </div>
+              <MapsTab 
+                mapStatsArray={mapStatsArray}
+                mapDetails={mapDetails}
+                agentImages={agentImages}
+                onMatchSelect={(match) => {
+                  setSelectedMatch(match);
+                  setSortConfig({ key: null, direction: 'default' });
+                }}
+                onNavigateToAgent={(agentName) => {
+                  setActiveTab("agents");
+                  setInitialModalAgent(agentName);
+                }}
+                initialSelectedMap={initialModalMap}
+                onClearInitialMap={() => setInitialModalMap(null)}
+                agentStatsArray={agentStatsArray}
+              />
             )}
           </div>
         </div>
@@ -958,102 +1005,17 @@ const response = await fetch(`https://val-stats-api.onrender.com/api/matches/${r
         </footer>
       )}
 
-      {/* 🔥 🔥 FULL SCOREBOARD MODAL POP-UP 🔥 🔥 */}
-      {selectedMatch && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-6 animate-fade-in" onClick={() => setSelectedMatch(null)}>
-          <div className="bg-[#0f1923] border border-gray-700 rounded-xl max-w-[1400px] w-[95vw] max-h-[96vh] overflow-y-auto p-6 md:p-8 shadow-2xl relative flex flex-col [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => setSelectedMatch(null)} className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors font-bold text-2xl z-10">✕</button>
-
-            {['competitive', 'unrated'].includes(String(selectedMatch.mode || "").toLowerCase()) ? (
-              <>
-                <div className="flex flex-col sm:flex-row items-center justify-between border-b border-gray-800 pb-5 mb-5 gap-4 px-2 mt-2">
-                  <div className="flex items-center gap-3">
-                    <div className="flex flex-col">
-                      <h2 className="text-3xl sm:text-4xl font-black text-white uppercase tracking-widest leading-tight">{selectedMatch.map || "Unknown Map"}</h2>
-                      <p className="text-sm md:text-base text-gray-400 font-medium">{selectedMatch.mode || "Unknown Mode"} • {selectedMatch.rounds_played || 0} Rounds Played</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4 bg-gray-900/60 px-6 py-2.5 rounded-lg border border-gray-800/80">
-                    <span className={`text-sm font-bold ${myTeam === 'Blue' ? 'text-blue-500/80' : 'text-red-500/80'} mr-1 uppercase`}>
-                      {myTeam === 'Blue' ? 'Team B' : 'Team A'} (You)
-                    </span>
-                    <span className={`text-3xl font-black ${myTeam === 'Blue' ? 'text-blue-400' : 'text-red-400'} tabular-nums`}>
-                      {myTeamScore}
-                    </span>
-                    <span className="text-xl font-bold text-gray-600 mx-2">:</span>
-                    <span className={`text-3xl font-black ${otherTeam === 'Blue' ? 'text-blue-400' : 'text-red-400'} tabular-nums`}>
-                      {otherTeamScore}
-                    </span>
-                    <span className={`text-sm font-bold ${otherTeam === 'Blue' ? 'text-blue-500/80' : 'text-red-500/80'} ml-1 uppercase`}>
-                      {otherTeam === 'Blue' ? 'Team B' : 'Team A'}
-                    </span>
-                  </div>
-                </div>
-
-                {selectedMatch.round_history && selectedMatch.round_history.length > 0 && (
-                  <div className="w-full bg-[#111823] border border-gray-800/80 rounded-xl p-4 sm:p-5 mb-6">
-                    <div className="flex flex-col gap-3">
-                      {/* 🔥 ย้ายทีมเรา (You) ขึ้นมาอยู่บนสุดเสมอ */}
-                      {renderTimelineRow(myTeam, myTeamScore, myTeam === 'Blue' ? 'Team B' : 'Team A')}
-                      {renderTimelineRow(otherTeam, otherTeamScore, otherTeam === 'Blue' ? 'Team B' : 'Team A')}
-
-                      <div className="flex items-center mt-1 w-full">
-                        <div className="w-24 md:w-28 pr-4 border-r border-transparent"></div>
-                        <div className="flex flex-1 gap-1.5 md:gap-2 ml-4">
-                          {selectedMatch.round_history.map(r => (
-                            <div key={r.round_num} className="flex-1 text-center text-[10px] md:text-xs font-bold text-gray-500 tabular-nums">
-                              {r.round_num}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex flex-col gap-6">
-                  {/* 🔥 ย้ายตารางฝั่งเรา (You) ขึ้นมาอยู่บนสุดเสมอ */}
-                  {renderTeamTable(
-                    myTeam === 'Blue' ? 'Team Blue' : 'Team Red', 
-                    selectedMatch.scoreboard?.filter(p => p.team === myTeam), 
-                    myTeam === 'Blue' ? "border-blue-500/40" : "border-red-500/40", 
-                    myTeam === 'Blue' ? "bg-blue-950/20" : "bg-red-950/20", 
-                    targetPlayerName, 
-                    selectedMatch.mode
-                  )}
-                  {renderTeamTable(
-                    otherTeam === 'Blue' ? 'Team Blue' : 'Team Red', 
-                    selectedMatch.scoreboard?.filter(p => p.team === otherTeam), 
-                    otherTeam === 'Blue' ? "border-blue-500/40" : "border-red-500/40", 
-                    otherTeam === 'Blue' ? "bg-blue-950/20" : "bg-red-950/20", 
-                    targetPlayerName, 
-                    selectedMatch.mode
-                  )}
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="flex flex-col sm:flex-row items-center justify-between border-b border-gray-800 pb-5 mb-5 gap-4 px-2 mt-2">
-                  <div className="flex items-center gap-3">
-                    <div className="flex flex-col">
-                      <h2 className="text-3xl sm:text-4xl font-black text-white uppercase tracking-widest leading-tight">{selectedMatch.map || "Unknown Map"}</h2>
-                      <p className="text-sm md:text-base text-gray-400 font-medium">{selectedMatch.mode || "Unknown Mode"}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Match ID</p>
-                    <p className="text-sm md:text-base font-mono text-gray-400">{String(selectedMatch.match_id || "N/A").split('-')[0]}</p>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-6">
-                  {renderUnifiedTable(selectedMatch.scoreboard, targetPlayerName, selectedMatch.mode)}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      {/* 🔥 FULL SCOREBOARD MODAL POP-UP 🔥 */}
+      <ScoreboardModal
+        selectedMatch={selectedMatch}
+        onClose={() => setSelectedMatch(null)}
+        targetPlayerName={activeSearchQuery.split('#')[0].toLowerCase()}
+        agentImages={agentImages}
+        rankImages={rankImages}
+        mapDetails={mapDetails}
+        agentRoles={agentRoles}
+        roleIcons={roleIcons}
+      />
     </div>
   )
 }
