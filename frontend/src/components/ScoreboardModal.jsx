@@ -1,4 +1,5 @@
 import { useState, Fragment } from 'react';
+import { analyzeMatchSides } from '../utils/helpers';
 
 export default function ScoreboardModal({ 
   selectedMatch, 
@@ -20,6 +21,8 @@ export default function ScoreboardModal({
   const myPlayerInMatch = scoreboard.find(p => String(p.name || '').toLowerCase() === targetName);
   const myTeam = myPlayerInMatch ? myPlayerInMatch.team : 'Blue';
   const otherTeam = myTeam === 'Blue' ? 'Red' : 'Blue';
+
+  const sidesAnalysis = analyzeMatchSides(selectedMatch, targetPlayerName);
 
   const myTeamScore = selectedMatch.teams?.[myTeam.toLowerCase()] ?? 0;
   const otherTeamScore = selectedMatch.teams?.[otherTeam.toLowerCase()] ?? 0;
@@ -525,7 +528,7 @@ export default function ScoreboardModal({
         {selectedMatch.round_history && selectedMatch.round_history.length > 0 && (
           <div className="px-6 md:px-8 py-3">
             <div className="bg-gray-950/70 border border-gray-800/90 rounded-2xl p-4 sm:p-5 shadow-inner">
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                 <p className="text-xs font-black text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
                   <span>⏱️</span> ROUND TIMELINE
                 </p>
@@ -541,6 +544,52 @@ export default function ScoreboardModal({
                   <span className="text-gray-500 hidden sm:inline">• เส้นคั่น = สลับฝั่ง (Half-Time)</span>
                 </div>
               </div>
+
+              {/* ⚔️ vs 🛡️ Side & Halftime Breakdown */}
+              {sidesAnalysis && (() => {
+                const halfTimeRound = sidesAnalysis.halfTimeRound || 12;
+                const firstHalfRounds = selectedMatch.round_history.filter(r => r.round_num <= halfTimeRound);
+                const secondHalfRounds = selectedMatch.round_history.filter(r => r.round_num > halfTimeRound);
+
+                const my1stHalfScore = firstHalfRounds.filter(r => r.winning_team === myTeam).length;
+                const enemy1stHalfScore = firstHalfRounds.filter(r => r.winning_team === otherTeam).length;
+
+                const my2ndHalfScore = secondHalfRounds.filter(r => r.winning_team === myTeam).length;
+                const enemy2ndHalfScore = secondHalfRounds.filter(r => r.winning_team === otherTeam).length;
+
+                const firstHalfSide = sidesAnalysis.startingSide;
+                const secondHalfSide = firstHalfSide === 'Attack' ? 'Defense' : 'Attack';
+
+                return (
+                  <div className="flex flex-wrap items-center gap-2 mb-3 pt-2 border-t border-gray-800/60">
+                    <div className={`px-2.5 py-1 rounded-lg border text-[11px] font-black flex items-center gap-1.5 ${
+                      firstHalfSide === 'Attack' 
+                        ? 'bg-red-500/10 text-red-400 border-red-500/30' 
+                        : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30'
+                    }`}>
+                      <span>{firstHalfSide === 'Attack' ? '⚔️' : '🛡️'}</span>
+                      <span>ครึ่งแรก: {firstHalfSide === 'Attack' ? 'บุก (ATTACK)' : 'รับ (DEFENSE)'}</span>
+                      <span className="text-white font-mono ml-1">({my1stHalfScore} - {enemy1stHalfScore})</span>
+                    </div>
+
+                    <span className="text-gray-600 text-xs">➔</span>
+
+                    <div className={`px-2.5 py-1 rounded-lg border text-[11px] font-black flex items-center gap-1.5 ${
+                      secondHalfSide === 'Attack' 
+                        ? 'bg-red-500/10 text-red-400 border-red-500/30' 
+                        : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30'
+                    }`}>
+                      <span>{secondHalfSide === 'Attack' ? '⚔️' : '🛡️'}</span>
+                      <span>ครึ่งหลัง: {secondHalfSide === 'Attack' ? 'บุก (ATTACK)' : 'รับ (DEFENSE)'}</span>
+                      <span className="text-white font-mono ml-1">({my2ndHalfScore} - {enemy2ndHalfScore})</span>
+                    </div>
+
+                    <span className="text-[10px] text-gray-400 ml-auto font-medium">
+                      Atk WR: <strong className="text-red-400 font-bold">{sidesAnalysis.attack.winRate}%</strong> • Def WR: <strong className="text-cyan-400 font-bold">{sidesAnalysis.defense.winRate}%</strong>
+                    </span>
+                  </div>
+                );
+              })()}
 
               {/* แถวทีมเรา (You) */}
               <div className="flex items-center w-full my-1">

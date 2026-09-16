@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import AgentMapMatrix from '../AgentMapMatrix';
+import { analyzeMatchSides } from '../../utils/helpers';
 
 export default function MapsTab({ 
   mapStatsArray = [], 
@@ -9,7 +10,8 @@ export default function MapsTab({
   onNavigateToAgent,
   initialSelectedMap = null,
   onClearInitialMap,
-  agentStatsArray = []
+  agentStatsArray = [],
+  activeSearchQuery = ''
 }) {
   const [viewMode, setViewMode] = useState('cards'); // 'cards' | 'matrix'
   const [selectedFilter, setSelectedFilter] = useState('All'); // All, fortress, high, low
@@ -523,6 +525,104 @@ export default function MapsTab({
                   <p className="text-[10px] text-gray-400">Combat Score</p>
                 </div>
               </div>
+
+              {/* ⚔️ vs 🛡️ สถิติแยกฝั่งบุก vs ฝั่งรับ ในด่านนี้ */}
+              {(() => {
+                let mapAtkTotal = 0;
+                let mapAtkWon = 0;
+                let mapDefTotal = 0;
+                let mapDefWon = 0;
+
+                if (activeModalMap.recentMatches) {
+                  activeModalMap.recentMatches.forEach(rm => {
+                    if (rm.matchRaw) {
+                      const analysis = analyzeMatchSides(rm.matchRaw, activeSearchQuery);
+                      if (analysis) {
+                        mapAtkTotal += analysis.attack.total;
+                        mapAtkWon += analysis.attack.won;
+                        mapDefTotal += analysis.defense.total;
+                        mapDefWon += analysis.defense.won;
+                      }
+                    }
+                  });
+                }
+
+                const totalMapRounds = mapAtkTotal + mapDefTotal;
+                if (totalMapRounds === 0) return null;
+
+                const mapAtkWR = mapAtkTotal > 0 ? Math.round((mapAtkWon / mapAtkTotal) * 100) : 0;
+                const mapDefWR = mapDefTotal > 0 ? Math.round((mapDefWon / mapDefTotal) * 100) : 0;
+                const diff = mapAtkWR - mapDefWR;
+
+                let biasText = 'ผลงานทั้งสองฝั่งสมดุลกัน';
+                let biasBadge = '⚖️ สมดุล';
+                let biasColor = 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30';
+
+                if (diff >= 5) {
+                  biasText = `ด่านนี้ถนัดฝั่งบุกมากกว่า (+${diff}%)`;
+                  biasBadge = '💥 ถนัดฝั่งบุก';
+                  biasColor = 'text-red-400 bg-red-500/10 border-red-500/30';
+                } else if (diff <= -5) {
+                  biasText = `ด่านนี้ถนัดฝั่งรับมากกว่า (+${Math.abs(diff)}%)`;
+                  biasBadge = '🛡️ ถนัดฝั่งรับ';
+                  biasColor = 'text-cyan-400 bg-cyan-500/10 border-cyan-500/30';
+                }
+
+                return (
+                  <div className="bg-gray-950/80 border border-gray-800 rounded-xl p-4 mb-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-xs font-black text-gray-200 uppercase tracking-wider flex items-center gap-2">
+                        <span>⚔️ vs 🛡️</span> สถิติแยกฝั่งใน {activeModalMap.name}
+                      </h4>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${biasColor}`}>
+                        {biasBadge} • {biasText}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      {/* Attack Box */}
+                      <div className="bg-[#0f1923] border border-red-500/25 rounded-lg p-2.5">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[11px] font-black text-red-400 flex items-center gap-1">
+                            ⚔️ บุก (ATK)
+                          </span>
+                          <span className="text-sm font-black text-white font-mono">{mapAtkWR}%</span>
+                        </div>
+                        <div className="w-full bg-gray-900 h-1.5 rounded-full overflow-hidden border border-gray-800 mb-1.5">
+                          <div
+                            className="h-full bg-gradient-to-r from-red-600 to-orange-500 transition-all duration-700"
+                            style={{ width: `${mapAtkWR}%` }}
+                          ></div>
+                        </div>
+                        <div className="flex justify-between text-[9px] text-gray-400 font-mono">
+                          <span>ชนะ {mapAtkWon} / แพ้ {mapAtkTotal - mapAtkWon}</span>
+                          <span>{mapAtkTotal} รอบ</span>
+                        </div>
+                      </div>
+
+                      {/* Defense Box */}
+                      <div className="bg-[#0f1923] border border-cyan-500/25 rounded-lg p-2.5">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[11px] font-black text-cyan-400 flex items-center gap-1">
+                            🛡️ รับ (DEF)
+                          </span>
+                          <span className="text-sm font-black text-white font-mono">{mapDefWR}%</span>
+                        </div>
+                        <div className="w-full bg-gray-900 h-1.5 rounded-full overflow-hidden border border-gray-800 mb-1.5">
+                          <div
+                            className="h-full bg-gradient-to-r from-cyan-600 to-teal-400 transition-all duration-700"
+                            style={{ width: `${mapDefWR}%` }}
+                          ></div>
+                        </div>
+                        <div className="flex justify-between text-[9px] text-gray-400 font-mono">
+                          <span>ชนะ {mapDefWon} / แพ้ {mapDefTotal - mapDefWon}</span>
+                          <span>{mapDefTotal} รอบ</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* 🕵️‍♂️ สถิติแยกตาม Agent ที่เคยใช้ในด่านนี้ */}
               <div className="mb-6">

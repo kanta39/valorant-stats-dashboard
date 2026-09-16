@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import OverviewTab from './components/tabs/OverviewTab'
 import AgentsTab from './components/tabs/AgentsTab'
 import MapsTab from './components/tabs/MapsTab'
 import ScoreboardModal from './components/ScoreboardModal'
 import HitMatrixCard from './components/HitMatrixCard'
+import SearchHistoryDropdown from './components/SearchHistoryDropdown'
 
 const VALORANT_MODES = [
   { id: 'All', name: 'ทุกโหมด (All Modes)' },
@@ -18,6 +19,20 @@ const VALORANT_MODES = [
 function App() {
   const [searchQuery, setSearchQuery] = useState("Double Chesse#0001") 
   const [activeSearchQuery, setActiveSearchQuery] = useState("Double Chesse#0001") 
+
+  // 🕒 ระบบบันทึกประวัติการค้นหา (Search History)
+  const [searchHistory, setSearchHistory] = useState(() => {
+    try {
+      const saved = localStorage.getItem('valorant_search_history');
+      return saved ? JSON.parse(saved) : ["Double Chesse#0001"];
+    } catch {
+      return ["Double Chesse#0001"];
+    }
+  });
+  const [showNavHistory, setShowNavHistory] = useState(false);
+  const [showHomeHistory, setShowHomeHistory] = useState(false);
+  const navSearchContainerRef = useRef(null);
+  const homeSearchContainerRef = useRef(null);
   
   const [playerData, setPlayerData] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -38,6 +53,20 @@ function App() {
 
   // 🔥 1. เพิ่ม State สำหรับเก็บสถานะการเรียงข้อมูล (Sorting)
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'default' });
+
+  // จัดการปิด Dropdown ประวัติเมื่อคลิกนอกพื้นที่
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (navSearchContainerRef.current && !navSearchContainerRef.current.contains(e.target)) {
+        setShowNavHistory(false);
+      }
+      if (homeSearchContainerRef.current && !homeSearchContainerRef.current.contains(e.target)) {
+        setShowHomeHistory(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     fetch('https://valorant-api.com/v1/agents?isPlayableCharacter=true')
@@ -110,8 +139,58 @@ function App() {
       .catch(err => console.error("โหลดรูป Rank ไม่สำเร็จ:", err));
   }, []);
 
-  const fetchStats = async (modeToFetch = filterMode, isNewSearch = false) => {
-    const queryToUse = isNewSearch ? searchQuery : activeSearchQuery;
+  // จัดการประวัติการค้นหา
+  const saveToHistory = (query) => {
+    if (!query || !query.includes('#')) return;
+    const trimmed = query.trim();
+    setSearchHistory(prev => {
+      const filtered = prev.filter(item => {
+        const str = typeof item === 'string' ? item : item.query;
+        return str.toLowerCase() !== trimmed.toLowerCase();
+      });
+      const updated = [trimmed, ...filtered].slice(0, 8);
+      try {
+        localStorage.setItem('valorant_search_history', JSON.stringify(updated));
+      } catch (err) {
+        console.error("Failed to save search history:", err);
+      }
+      return updated;
+    });
+  };
+
+  const removeFromHistory = (queryToRemove) => {
+    setSearchHistory(prev => {
+      const updated = prev.filter(item => {
+        const str = typeof item === 'string' ? item : item.query;
+        return str.toLowerCase() !== queryToRemove.toLowerCase();
+      });
+      try {
+        localStorage.setItem('valorant_search_history', JSON.stringify(updated));
+      } catch (err) {
+        console.error("Failed to update search history:", err);
+      }
+      return updated;
+    });
+  };
+
+  const clearAllHistory = () => {
+    setSearchHistory([]);
+    try {
+      localStorage.removeItem('valorant_search_history');
+    } catch (err) {
+      console.error("Failed to clear search history:", err);
+    }
+  };
+
+  const handleSelectHistoryItem = (query) => {
+    setSearchQuery(query);
+    setShowNavHistory(false);
+    setShowHomeHistory(false);
+    fetchStats(filterMode, true, query);
+  };
+
+  const fetchStats = async (modeToFetch = filterMode, isNewSearch = false, customQuery = null) => {
+    const queryToUse = customQuery ? customQuery : (isNewSearch ? searchQuery : activeSearchQuery);
 
     if (!queryToUse.trim()) { setErrorMsg("กรุณากรอก Riot ID และ Tag คับ"); return; }
     if (!queryToUse.includes('#')) { setErrorMsg("รูปแบบไม่ถูกต้องคับ กรุณาพิมพ์ในรูปแบบ ชื่อ#แท็ก (ต้องมีเครื่องหมาย #)"); return; }
@@ -126,7 +205,7 @@ function App() {
 
     try {
       // เพิ่ม { cache: "no-store" } เข้าไปด้านหลังสุดของวงเล็บ fetch
-const response = await fetch(`https://val-stats-api.onrender.com/api/matches/${riotName.trim()}/${riotTag.trim()}?mode=${currentMode}`, { cache: "no-store" })
+      const response = await fetch(`https://val-stats-api.onrender.com/api/matches/${riotName.trim()}/${riotTag.trim()}?mode=${currentMode}`, { cache: "no-store" })
       const data = await response.json()
       if (data.error) { 
         setErrorMsg(data.error); 
@@ -134,7 +213,10 @@ const response = await fetch(`https://val-stats-api.onrender.com/api/matches/${r
       } 
       else { 
         setPlayerData(data); 
-        if (isNewSearch) setActiveSearchQuery(queryToUse); 
+        if (isNewSearch) {
+          setActiveSearchQuery(queryToUse);
+          saveToHistory(queryToUse);
+        }
       }
     } catch (error) {
       console.error("ดึงข้อมูลไม่สำเร็จ:", error); setErrorMsg("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์หลังบ้านได้");
@@ -142,7 +224,13 @@ const response = await fetch(`https://val-stats-api.onrender.com/api/matches/${r
     } finally { setLoading(false); }
   }
 
-  const handleKeyPress = (e) => { if (e.key === 'Enter') fetchStats(filterMode, true); }
+  const handleKeyPress = (e) => { 
+    if (e.key === 'Enter') {
+      setShowNavHistory(false);
+      setShowHomeHistory(false);
+      fetchStats(filterMode, true);
+    }
+  }
   const handleModeChange = (e) => {
     const selectedMode = e.target.value; setFilterMode(selectedMode); fetchStats(selectedMode, false); setSelectedMatch(null); 
   }
@@ -667,9 +755,36 @@ const response = await fetch(`https://val-stats-api.onrender.com/api/matches/${r
               ))}
             </div>
           </div>
-          <div className="flex w-full lg:w-auto max-w-md gap-2">
-            <input type="text" placeholder="ชื่อผู้เล่น#แท็ก" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={handleKeyPress} className="w-full sm:w-64 bg-gray-950 border border-gray-700 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:border-red-500 transition-all font-bold" spellCheck="false" />
-            <button onClick={() => fetchStats(filterMode, true)} disabled={loading} className="bg-red-600 hover:bg-red-500 disabled:bg-red-800 text-white font-bold py-2 px-4 rounded-xl text-sm whitespace-nowrap">ค้นหาใหม่</button>
+          <div className="flex w-full lg:w-auto max-w-md gap-2 relative" ref={navSearchContainerRef}>
+            <div className="relative w-full sm:w-64">
+              <input 
+                type="text" 
+                placeholder="ชื่อผู้เล่น#แท็ก" 
+                value={searchQuery} 
+                onChange={(e) => setSearchQuery(e.target.value)} 
+                onFocus={() => setShowNavHistory(true)}
+                onKeyDown={handleKeyPress} 
+                className="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:border-red-500 transition-all font-bold" 
+                spellCheck="false" 
+              />
+              <SearchHistoryDropdown
+                history={searchHistory}
+                isOpen={showNavHistory}
+                onSelect={handleSelectHistoryItem}
+                onRemove={removeFromHistory}
+                onClearAll={clearAllHistory}
+              />
+            </div>
+            <button 
+              onClick={() => {
+                setShowNavHistory(false);
+                fetchStats(filterMode, true);
+              }} 
+              disabled={loading} 
+              className="bg-red-600 hover:bg-red-500 disabled:bg-red-800 text-white font-bold py-2 px-4 rounded-xl text-sm whitespace-nowrap"
+            >
+              ค้นหาใหม่
+            </button>
           </div>
         </nav>
       )}
@@ -683,8 +798,33 @@ const response = await fetch(`https://val-stats-api.onrender.com/api/matches/${r
           </div>
           <div className="w-full max-w-2xl bg-gray-900/60 p-6 md:p-8 rounded-3xl border border-gray-800 shadow-2xl mb-8">
             <div className="flex flex-col gap-5">
-              <input type="text" placeholder="ชื่อผู้เล่น#แท็ก (เช่น Jett#TH1)" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={handleKeyPress} className="w-full bg-gray-950 border border-gray-700 rounded-xl px-6 py-4 text-white text-xl md:text-2xl text-center focus:border-red-500" spellCheck="false" />
-              <button onClick={() => fetchStats(filterMode, true)} disabled={loading} className="bg-red-600 hover:bg-red-500 text-white font-bold py-4 px-8 rounded-xl w-full text-lg shadow-[0_0_20px_rgba(220,38,38,0.2)]">
+              <div className="relative w-full" ref={homeSearchContainerRef}>
+                <input 
+                  type="text" 
+                  placeholder="ชื่อผู้เล่น#แท็ก (เช่น Jett#TH1)" 
+                  value={searchQuery} 
+                  onChange={(e) => setSearchQuery(e.target.value)} 
+                  onFocus={() => setShowHomeHistory(true)}
+                  onKeyDown={handleKeyPress} 
+                  className="w-full bg-gray-950 border border-gray-700 rounded-xl px-6 py-4 text-white text-xl md:text-2xl text-center focus:border-red-500" 
+                  spellCheck="false" 
+                />
+                <SearchHistoryDropdown
+                  history={searchHistory}
+                  isOpen={showHomeHistory}
+                  onSelect={handleSelectHistoryItem}
+                  onRemove={removeFromHistory}
+                  onClearAll={clearAllHistory}
+                />
+              </div>
+              <button 
+                onClick={() => {
+                  setShowHomeHistory(false);
+                  fetchStats(filterMode, true);
+                }} 
+                disabled={loading} 
+                className="bg-red-600 hover:bg-red-500 text-white font-bold py-4 px-8 rounded-xl w-full text-lg shadow-[0_0_20px_rgba(220,38,38,0.2)]"
+              >
                 {loading ? "กำลังสแกนและดึงข้อมูล..." : "ค้นหาประวัติการแข่งขัน"}
               </button>
             </div>
@@ -990,6 +1130,7 @@ const response = await fetch(`https://val-stats-api.onrender.com/api/matches/${r
                 initialSelectedMap={initialModalMap}
                 onClearInitialMap={() => setInitialModalMap(null)}
                 agentStatsArray={agentStatsArray}
+                activeSearchQuery={activeSearchQuery}
               />
             )}
           </div>

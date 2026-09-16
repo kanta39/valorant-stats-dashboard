@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import MatchCard from '../MatchCard';
 import PerformanceTrendChart from '../PerformanceTrendChart';
+import TeamImpactCard from '../TeamImpactCard';
+import SideBiasCard from '../SideBiasCard';
+import InfoTooltip from '../InfoTooltip';
 
 export default function OverviewTab({ 
   displayedMatches = [], 
@@ -201,6 +204,12 @@ export default function OverviewTab({
               <div className="min-w-0 flex-1">
                 <p className="text-[10px] text-yellow-400 font-black uppercase flex items-center gap-1">
                   <span>👑</span> แมตช์คะแนนสูงสุด
+                  <InfoTooltip 
+                    title="แมตช์คะแนนสูงสุด (Peak Match)"
+                    description="แมตช์ที่คุณทำคะแนน Combat Score (ACS) ได้สูงที่สุดจากประวัติแมตช์ที่กำลังแสดงผลอยู่"
+                    position="bottom"
+                    align="left"
+                  />
                 </p>
                 <p className="text-xs font-black text-white truncate mt-0.5">{bestMatch.map}</p>
                 <p className="text-[10px] text-gray-400 font-mono mt-0.5">
@@ -216,7 +225,16 @@ export default function OverviewTab({
               🎯
             </div>
             <div>
-              <p className="text-[10px] text-gray-400 font-bold uppercase">Headshot เฉลี่ย</p>
+              <p className="text-[10px] text-gray-400 font-bold uppercase flex items-center gap-1">
+                <span>Headshot เฉลี่ย</span>
+                <InfoTooltip 
+                  title="Headshot % (ความแม่นยำเข้าหัว)"
+                  description="สัดส่วนของกระสุนที่ยิงโดนศีรษะศัตรูเทียบกับจำนวนกระสุนที่ยิงโดนทั้งหมด (หัว + ตัว + ขา)"
+                  benchmark="15-20%: มาตรฐาน | 20-25%: แม่นยำสูง | >25%: คมระดับโปร"
+                  position="bottom"
+                  align="left"
+                />
+              </p>
               <p className="text-lg font-black text-blue-400 mt-0.5">{avgHs}%</p>
               <p className="text-[10px] text-gray-500">ความแม่นยำทุกแมตช์</p>
             </div>
@@ -228,7 +246,16 @@ export default function OverviewTab({
               ⚡
             </div>
             <div>
-              <p className="text-[10px] text-gray-400 font-bold uppercase">Combat Score เฉลี่ย</p>
+              <p className="text-[10px] text-gray-400 font-bold uppercase flex items-center gap-1">
+                <span>Combat Score เฉลี่ย</span>
+                <InfoTooltip 
+                  title="ACS (Average Combat Score)"
+                  description="คะแนนความสามารถในการต่อสู้เฉลี่ยต่อรอบ คำนวณจากดาเมจ, การคิล, การเปิดคิลแรก (First Kill), และการสังหารต่อเนื่อง"
+                  benchmark="150-190: ทั่วไป | 200-240: โหด | >250: แบกเกม"
+                  position="bottom"
+                  align="left"
+                />
+              </p>
               <p className="text-lg font-black text-yellow-400 mt-0.5">
                 {avgAcs >= 1000 ? avgAcs.toLocaleString() : avgAcs}
               </p>
@@ -244,6 +271,22 @@ export default function OverviewTab({
           matches={displayedMatches}
           activeSearchQuery={activeSearchQuery}
           onMatchSelect={onMatchSelect}
+        />
+      )}
+
+      {/* 🎯 TEAM IMPACT & CARRY INTELLIGENCE 🎯 */}
+      {displayedMatches.length > 0 && (
+        <TeamImpactCard 
+          matches={displayedMatches}
+          activeSearchQuery={activeSearchQuery}
+        />
+      )}
+
+      {/* ⚔️ vs 🛡️ ATTACK vs DEFENSE SIDE MASTERY ⚔️ */}
+      {displayedMatches.length > 0 && (
+        <SideBiasCard 
+          matches={displayedMatches}
+          activeSearchQuery={activeSearchQuery}
         />
       )}
 
