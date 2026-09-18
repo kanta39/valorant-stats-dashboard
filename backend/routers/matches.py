@@ -1,6 +1,12 @@
 from fastapi import APIRouter
 from backend.services.valorant_api import fetch_mmr, fetch_matches
 from backend.utils.performance import calculate_performance
+from backend.services.database import (
+    upsert_matches, 
+    upsert_player_profile, 
+    get_cached_player_matches, 
+    get_cached_player_profile
+)
 
 router = APIRouter(prefix="/api/matches")
 
@@ -8,7 +14,7 @@ router = APIRouter(prefix="/api/matches")
 def get_player_matches(name: str, tag: str, mode: str = "All"):
     region = "ap"
     
-# 1. อัปเกรดการดึงแรงค์ (ใช้ v2 เพื่อดึง Peak Rank และ RR)
+    # 1. อัปเกรดการดึงแรงค์ (ใช้ v2 เพื่อดึง Peak Rank และ RR)
     my_real_rank = "Unranked"
     current_rr = 0
     peak_rank = "Unranked"
@@ -28,9 +34,13 @@ def get_player_matches(name: str, tag: str, mode: str = "All"):
         print("ดึงข้อมูล MMR ไม่สำเร็จ:", e)
 
     # 🔥 2. ดึงประวัติ 20 นัดล่าสุด พร้อมยัดตัวกรองดัก API ทุกรูปแบบ
-    response = fetch_matches(region, name, tag, 20, mode)
+    response = None
+    try:
+        response = fetch_matches(region, name, tag, 20, mode)
+    except Exception as e:
+        print("ดึงประวัติการแข่งขันจาก API ไม่สำเร็จ:", e)
     
-    if response.status_code == 200:
+    if response and response.status_code == 200:
         data = response.json()
         
         if 'data' in data and len(data['data']) > 0:
@@ -123,19 +133,42 @@ def get_player_matches(name: str, tag: str, mode: str = "All"):
                         "scoreboard": scoreboard_players
                     })
             if match_history:
-                # 🔥 ส่งข้อมูล Rank กลับไปให้หน้าบ้านเอาไปใส่ในการ์ด 🔥
+                rank_data = {
+                    "current": my_real_rank,
+                    "current_rr": current_rr,
+                    "peak": peak_rank
+                }
+
+                # 🍃 บันทึกลง MongoDB Atlas แบบ Auto-cache ทันที
+                try:
+                    upsert_matches(match_history, name, tag)
+                    upsert_player_profile(name, tag, rank_data)
+                except Exception as db_err:
+                    print("⚠️ บันทึกข้อมูลลง MongoDB Atlas ไม่สำเร็จ:", db_err)
+
                 return {
                     "message": "Success", 
                     "match_history": match_history,
-                    "rank": {
-                        "current": my_real_rank,
-                        "current_rr": current_rr,
-                        "peak": peak_rank
-                    }
+                    "rank": rank_data,
+                    "source": "api"
                 }
-            else:
-                return {"error": "ไม่พบข้อมูลสถิติของคุณในระบบแมตช์"}
-        else:
-            return {"message": "ไม่พบประวัติการแข่งขันล่าสุด"}
-    else:
-        return {"error": "ไม่สามารถดึงข้อมูลได้", "status": response.status_code}
+
+    # 🛡️ Fallback: หาก API มีปัญหา หรือติด Rate Limit ให้ดึงแคชจาก MongoDB Atlas แทน
+    cached_matches = get_cached_player_matches(name, tag, mode)
+    if cached_matches:
+        cached_profile = get_cached_player_profile(name, tag) or {}
+        cached_rank = cached_profile.get("rank", {
+            "current": my_real_rank if my_real_rank != "Unranked" else "Unranked",
+            "current_rr": current_rr,
+            "peak": peak_rank if peak_rank != "Unranked" else "Unranked"
+        })
+        return {
+            "message": "Success (From Database Cache)",
+            "match_history": cached_matches,
+            "rank": cached_rank,
+            "source": "cache"
+        }
+
+    status_code = response.status_code if response else 500
+    return {"error": "ไม่สามารถดึงข้อมูลได้และไม่มีแคชในฐานข้อมูล", "status": status_code}
+

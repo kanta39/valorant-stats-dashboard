@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware # นำเข้าตัวจัดการประตูรักษาความปลอดภัย
 from backend.routers import player, matches
+from backend.services.database import check_db_connection
 
 app = FastAPI()
 
@@ -19,3 +20,8 @@ app.include_router(matches.router)
 @app.get("/")
 def read_root():
     return {"message": "Welcome to VALORANT Dashboard API!", "status": "Server is running perfectly"}
+
+@app.get("/api/health/db")
+def health_db():
+    """ตรวจสอบสถานะการเชื่อมต่อฐานข้อมูล MongoDB Atlas"""
+    return check_db_connection()
