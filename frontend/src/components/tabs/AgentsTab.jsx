@@ -36,7 +36,8 @@ export default function AgentsTab({
   initialSelectedAgent = null,
   onClearInitialAgent,
   mapStatsArray = [],
-  mapDetails = {}
+  mapDetails = {},
+  totalHistoricalMatches = 0
 }) {
   const [viewMode, setViewMode] = useState('cards'); // 'cards' | 'matrix'
   const [selectedRole, setSelectedRole] = useState('All');
@@ -122,11 +123,18 @@ export default function AgentsTab({
       {/* 🧭 หัวข้อและคำอธิบาย + ปุ่มสลับมุมมอง Cards vs Matrix */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-gray-800 pb-4 gap-4">
         <div>
-          <h2 className="text-2xl font-black text-white flex items-center gap-2">
-            <span className="text-red-500">🕵️‍♂️</span> AGENT ANALYTICS
-          </h2>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h2 className="text-2xl font-black text-white flex items-center gap-2">
+              <span className="text-red-500">🕵️‍♂️</span> AGENT ANALYTICS
+            </h2>
+            {totalHistoricalMatches > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shadow-sm">
+                <span>🍃</span> ข้อมูลสะสมในระบบ {totalHistoricalMatches} แมตช์
+              </span>
+            )}
+          </div>
           <p className="text-sm text-gray-500 mt-1">
-            สถิติเชิงลึกรายตัวละคร ฉายาประเมินฝีมือ และความสัมพันธ์กับแผนที่ (คลิกการ์ดเพื่อดูรายละเอียด)
+            สถิติเชิงลึกรายตัวละคร ฉายาประเมินฝีมือ และความสัมพันธ์กับแผนที่ (คำนวณจากประวัติสะสมทั้งหมดในระบบ)
           </p>
         </div>
 

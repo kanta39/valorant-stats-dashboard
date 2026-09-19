@@ -243,6 +243,17 @@ function App() {
       : playerData.match_history.filter(m => String(m.mode || "unknown").toLowerCase().replace(/\s/g, '') === filterMode.toLowerCase().replace(/\s/g, ''))
   );
 
+  // 🍃 ประวัติการแข่งขันทั้งหมดที่สะสมใน MongoDB Atlas สำหรับแท็บ Agents และ Maps
+  const allHistoricalMatches = !hasData ? [] : (
+    (playerData.all_matches && playerData.all_matches.length > 0)
+      ? (
+          filterMode === "All"
+            ? playerData.all_matches
+            : playerData.all_matches.filter(m => String(m.mode || "unknown").toLowerCase().replace(/\s/g, '') === filterMode.toLowerCase().replace(/\s/g, ''))
+        )
+      : displayedMatches
+  );
+
   const getOverallStats = () => {
     if (displayedMatches.length === 0) return null;
     
@@ -313,17 +324,17 @@ function App() {
     return Object.values(stats).sort((a, b) => b.matches - a.matches);
   }
 
-  const getAgentStats = () => {
-    if (displayedMatches.length === 0) return [];
+  const getAgentStats = (matchesToUse = allHistoricalMatches) => {
+    if (matchesToUse.length === 0) return [];
     
     const stats = {};
     const targetName = activeSearchQuery.split('#')[0].toLowerCase();
 
-    displayedMatches.forEach(match => {
+    matchesToUse.forEach(match => {
       const myPlayer = match.scoreboard?.find(p => String(p.name || "").toLowerCase() === targetName);
       if (!myPlayer) return;
 
-      const agent = match.agent || "Unknown"; 
+      const agent = myPlayer.agent || match.agent || "Unknown"; 
       if (!stats[agent]) {
         stats[agent] = { 
           name: agent, 
@@ -342,12 +353,12 @@ function App() {
         };
       }
 
-      stats[agent].matches += 1;
-      stats[agent].k += match.raw_stats?.kills || 0;
-      stats[agent].death += match.raw_stats?.deaths || 0;
-      stats[agent].a += match.raw_stats?.assists || 0;
-
       const pStats = myPlayer.stats || {};
+      stats[agent].matches += 1;
+      stats[agent].k += (pStats.kills !== undefined ? pStats.kills : (match.raw_stats?.kills || 0));
+      stats[agent].death += (pStats.deaths !== undefined ? pStats.deaths : (match.raw_stats?.deaths || 0));
+      stats[agent].a += (pStats.assists !== undefined ? pStats.assists : (match.raw_stats?.assists || 0));
+
       stats[agent].totalAcs += (pStats.acs || 0);
       stats[agent].totalAdr += (pStats.adr || 0);
       stats[agent].totalHs += (pStats.hs_percent || 0);
@@ -384,9 +395,9 @@ function App() {
         map: mapName,
         mode: match.mode,
         result: matchResult,
-        kills: match.raw_stats?.kills || 0,
-        deaths: match.raw_stats?.deaths || 0,
-        assists: match.raw_stats?.assists || 0,
+        kills: (pStats.kills !== undefined ? pStats.kills : (match.raw_stats?.kills || 0)),
+        deaths: (pStats.deaths !== undefined ? pStats.deaths : (match.raw_stats?.deaths || 0)),
+        assists: (pStats.assists !== undefined ? pStats.assists : (match.raw_stats?.assists || 0)),
         acs: pStats.acs || 0,
         adr: pStats.adr || 0,
         hs_percent: pStats.hs_percent || 0,
@@ -397,7 +408,7 @@ function App() {
       });
     });
 
-    const totalAllMatches = displayedMatches.length;
+    const totalAllMatches = matchesToUse.length;
 
     return Object.values(stats).map(agent => {
       const winRate = agent.matches > 0 ? ((agent.w / agent.matches) * 100) : 0;
@@ -455,13 +466,13 @@ function App() {
     }).sort((a, b) => b.matches - a.matches);
   }
 
-  const getMapStats = () => {
-    if (displayedMatches.length === 0) return [];
+  const getMapStats = (matchesToUse = allHistoricalMatches) => {
+    if (matchesToUse.length === 0) return [];
     
     const stats = {};
     const targetName = activeSearchQuery.split('#')[0].toLowerCase();
 
-    displayedMatches.forEach(match => {
+    matchesToUse.forEach(match => {
       const myPlayer = match.scoreboard?.find(p => String(p.name || "").toLowerCase() === targetName);
       if (!myPlayer) return;
 
@@ -509,12 +520,12 @@ function App() {
 
       const pStats = myPlayer.stats || {};
       stats[mapName].totalAcs += (pStats.acs || 0);
-      stats[mapName].totalKills += (pStats.kills || 0);
-      stats[mapName].totalDeaths += (pStats.deaths || 0);
-      stats[mapName].totalAssists += (pStats.assists || 0);
+      stats[mapName].totalKills += (pStats.kills !== undefined ? pStats.kills : (match.raw_stats?.kills || 0));
+      stats[mapName].totalDeaths += (pStats.deaths !== undefined ? pStats.deaths : (match.raw_stats?.deaths || 0));
+      stats[mapName].totalAssists += (pStats.assists !== undefined ? pStats.assists : (match.raw_stats?.assists || 0));
 
       // บันทึก Agent ที่เล่นในด่านนี้
-      const agentPlayed = match.agent || myPlayer.agent || "Unknown";
+      const agentPlayed = myPlayer.agent || match.agent || "Unknown";
       if (!stats[mapName].agentsPlayed[agentPlayed]) {
         stats[mapName].agentsPlayed[agentPlayed] = {
           name: agentPlayed,
@@ -529,8 +540,8 @@ function App() {
       }
       stats[mapName].agentsPlayed[agentPlayed].matches += 1;
       stats[mapName].agentsPlayed[agentPlayed].acsSum += (pStats.acs || 0);
-      stats[mapName].agentsPlayed[agentPlayed].kills += (pStats.kills || 0);
-      stats[mapName].agentsPlayed[agentPlayed].deaths += (pStats.deaths || 0);
+      stats[mapName].agentsPlayed[agentPlayed].kills += (pStats.kills !== undefined ? pStats.kills : (match.raw_stats?.kills || 0));
+      stats[mapName].agentsPlayed[agentPlayed].deaths += (pStats.deaths !== undefined ? pStats.deaths : (match.raw_stats?.deaths || 0));
       if (matchResult === 'W') stats[mapName].agentsPlayed[agentPlayed].w += 1;
       else if (matchResult === 'L') stats[mapName].agentsPlayed[agentPlayed].l += 1;
       else stats[mapName].agentsPlayed[agentPlayed].d += 1;
@@ -543,9 +554,9 @@ function App() {
         myScore,
         enemyScore,
         agent: agentPlayed,
-        kills: pStats.kills || 0,
-        deaths: pStats.deaths || 0,
-        assists: pStats.assists || 0,
+        kills: (pStats.kills !== undefined ? pStats.kills : (match.raw_stats?.kills || 0)),
+        deaths: (pStats.deaths !== undefined ? pStats.deaths : (match.raw_stats?.deaths || 0)),
+        assists: (pStats.assists !== undefined ? pStats.assists : (match.raw_stats?.assists || 0)),
         acs: pStats.acs || 0,
         matchRaw: match
       });
@@ -1111,6 +1122,7 @@ function App() {
                 onClearInitialAgent={() => setInitialModalAgent(null)}
                 mapStatsArray={mapStatsArray}
                 mapDetails={mapDetails}
+                totalHistoricalMatches={allHistoricalMatches.length}
               />
             )}
 
@@ -1131,6 +1143,7 @@ function App() {
                 onClearInitialMap={() => setInitialModalMap(null)}
                 agentStatsArray={agentStatsArray}
                 activeSearchQuery={activeSearchQuery}
+                totalHistoricalMatches={allHistoricalMatches.length}
               />
             )}
           </div>

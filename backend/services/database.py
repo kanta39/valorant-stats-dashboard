@@ -179,6 +179,36 @@ def get_cached_player_matches(name: str, tag: str, mode: str = "All", limit: int
         print("⚠️ ไม่สามารถดึงแคชแมตช์จาก MongoDB:", e)
         return []
 
+def get_all_player_matches(name: str, tag: str, mode: str = "All") -> List[Dict[str, Any]]:
+    """ดึงประวัติการแข่งขันทั้งหมดที่เคยบันทึกไว้ใน MongoDB สำหรับผู้เล่นคนนี้ (ไม่จำกัดจำนวน)"""
+    db = get_database()
+    if db is None:
+        return []
+
+    try:
+        matches_col = db["matches"]
+        player_key = f"{name}#{tag}".lower().strip()
+
+        query: Dict[str, Any] = {
+            "$or": [
+                {"tracked_players": player_key},
+                {"scoreboard.name": {"$regex": f"^{name}$", "$options": "i"}}
+            ]
+        }
+
+        if mode and mode != "All":
+            query["mode"] = {"$regex": f"^{mode}$", "$options": "i"}
+
+        cursor = matches_col.find(
+            query,
+            {"_id": 0}
+        ).sort("updated_at", -1)
+
+        return list(cursor)
+    except Exception as e:
+        print("⚠️ ไม่สามารถดึงประวัติแมตช์ทั้งหมดจาก MongoDB:", e)
+        return []
+
 def get_cached_player_profile(name: str, tag: str) -> Optional[Dict[str, Any]]:
     """ดึงโปรไฟล์และแรงค์ที่เคยบันทึกไว้จาก MongoDB"""
     db = get_database()

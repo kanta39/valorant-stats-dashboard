@@ -5,7 +5,8 @@ from backend.services.database import (
     upsert_matches, 
     upsert_player_profile, 
     get_cached_player_matches, 
-    get_cached_player_profile
+    get_cached_player_profile,
+    get_all_player_matches
 )
 
 router = APIRouter(prefix="/api/matches")
@@ -140,22 +141,29 @@ def get_player_matches(name: str, tag: str, mode: str = "All"):
                 }
 
                 # 🍃 บันทึกลง MongoDB Atlas แบบ Auto-cache ทันที
+                all_matches = []
                 try:
                     upsert_matches(match_history, name, tag)
                     upsert_player_profile(name, tag, rank_data)
+                    all_matches = get_all_player_matches(name, tag, mode)
                 except Exception as db_err:
                     print("⚠️ บันทึกข้อมูลลง MongoDB Atlas ไม่สำเร็จ:", db_err)
+
+                if not all_matches:
+                    all_matches = match_history
 
                 return {
                     "message": "Success", 
                     "match_history": match_history,
+                    "all_matches": all_matches,
+                    "total_recorded_matches": len(all_matches),
                     "rank": rank_data,
                     "source": "api"
                 }
 
     # 🛡️ Fallback: หาก API มีปัญหา หรือติด Rate Limit ให้ดึงแคชจาก MongoDB Atlas แทน
-    cached_matches = get_cached_player_matches(name, tag, mode)
-    if cached_matches:
+    all_matches = get_all_player_matches(name, tag, mode)
+    if all_matches:
         cached_profile = get_cached_player_profile(name, tag) or {}
         cached_rank = cached_profile.get("rank", {
             "current": my_real_rank if my_real_rank != "Unranked" else "Unranked",
@@ -164,7 +172,9 @@ def get_player_matches(name: str, tag: str, mode: str = "All"):
         })
         return {
             "message": "Success (From Database Cache)",
-            "match_history": cached_matches,
+            "match_history": all_matches[:20],
+            "all_matches": all_matches,
+            "total_recorded_matches": len(all_matches),
             "rank": cached_rank,
             "source": "cache"
         }
