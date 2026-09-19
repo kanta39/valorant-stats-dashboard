@@ -79,9 +79,16 @@ export default function HitMatrixCard({ matches = [], activeSearchQuery = '' }) 
             HIT DISTRIBUTION
           </h3>
         </div>
-        <span className="text-[10px] text-gray-400 font-mono">
-          {totalHits.toLocaleString()} Hits
-        </span>
+        <div className="flex items-center gap-1.5">
+          {matches.length > 0 && (
+            <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-full font-bold border border-emerald-500/25">
+              {matches.length} แมตช์สะสม
+            </span>
+          )}
+          <span className="text-[10px] text-gray-400 font-mono">
+            {totalHits.toLocaleString()} Hits
+          </span>
+        </div>
       </div>
 
       {/* Silhouette & Stats Layout */}

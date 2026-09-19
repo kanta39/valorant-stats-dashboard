@@ -286,7 +286,7 @@ function App() {
     return { totalMatches, winRate, kdaRatio, wins, losses, draws, totalKills, totalDeaths, totalAssists };
   }
 
-  const getRoleStats = () => {
+  const getRoleStats = (matchesToUse = allHistoricalMatches) => {
     const stats = {
       'Duelist': { name: 'Duelist', w: 0, l: 0, d: 0, k: 0, death: 0, a: 0, matches: 0 },
       'Initiator': { name: 'Initiator', w: 0, l: 0, d: 0, k: 0, death: 0, a: 0, matches: 0 },
@@ -294,22 +294,24 @@ function App() {
       'Sentinel': { name: 'Sentinel', w: 0, l: 0, d: 0, k: 0, death: 0, a: 0, matches: 0 }
     };
 
-    if (displayedMatches.length === 0) return Object.values(stats);
+    if (matchesToUse.length === 0) return Object.values(stats);
     const targetName = activeSearchQuery.split('#')[0].toLowerCase();
 
-    displayedMatches.forEach(match => {
+    matchesToUse.forEach(match => {
       const myPlayer = match.scoreboard?.find(p => String(p.name || "").toLowerCase() === targetName);
       if (!myPlayer) return;
 
-      const role = agentRoles[match.agent] || 'Unknown';
+      const agent = myPlayer.agent || match.agent || "Unknown";
+      const role = agentRoles[agent] || 'Unknown';
       if (!stats[role]) {
         stats[role] = { name: role, w: 0, l: 0, d: 0, k: 0, death: 0, a: 0, matches: 0 };
       }
 
+      const pStats = myPlayer.stats || {};
       stats[role].matches += 1;
-      stats[role].k += match.raw_stats?.kills || 0;
-      stats[role].death += match.raw_stats?.deaths || 0;
-      stats[role].a += match.raw_stats?.assists || 0;
+      stats[role].k += (pStats.kills !== undefined ? pStats.kills : (match.raw_stats?.kills || 0));
+      stats[role].death += (pStats.deaths !== undefined ? pStats.deaths : (match.raw_stats?.deaths || 0));
+      stats[role].a += (pStats.assists !== undefined ? pStats.assists : (match.raw_stats?.assists || 0));
 
       const myTeam = myPlayer.team;
       const redScore = match.teams?.red || 0;
@@ -925,18 +927,25 @@ function App() {
             )}
 
             {/* 🎯 HIT DISTRIBUTION MATRIX (Aim Profile) */}
-            {displayedMatches.length > 0 && (
+            {allHistoricalMatches.length > 0 && (
               <HitMatrixCard 
-                matches={displayedMatches} 
+                matches={allHistoricalMatches} 
                 activeSearchQuery={activeSearchQuery} 
               />
             )}
 
             {/* ROLES PERFORMANCE */}
             <div className="bg-[#111823] border border-gray-800/80 rounded-2xl p-5 shadow-xl animate-fade-in">
-              <h3 className="text-white text-base font-black tracking-widest uppercase mb-4 flex items-center gap-2">
-                <span className="text-red-500">🎯</span> ROLES PERFORMANCE
-              </h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-white text-base font-black tracking-widest uppercase flex items-center gap-2">
+                  <span className="text-red-500">🎯</span> ROLES PERFORMANCE
+                </h3>
+                {allHistoricalMatches.length > 0 && (
+                  <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full font-bold border border-emerald-500/25">
+                    {allHistoricalMatches.length} แมตช์สะสม
+                  </span>
+                )}
+              </div>
               <div className="flex flex-col gap-3">
                 {roleStatsArray.length > 0 ? roleStatsArray.map((role, idx) => {
                   const winRate = role.matches > 0 ? ((role.w / role.matches) * 100) : 0;
