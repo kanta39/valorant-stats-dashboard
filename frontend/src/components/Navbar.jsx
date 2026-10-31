@@ -1,3 +1,5 @@
+import ThemeToggle from './ThemeToggle';
+
 export default function Navbar({ activeTab, setActiveTab, searchQuery, setSearchQuery, onSearch, loading }) {
   const handleKeyPress = (e) => {
     if (e.key === 'Enter') onSearch();
@@ -19,9 +21,10 @@ export default function Navbar({ activeTab, setActiveTab, searchQuery, setSearch
           ))}
         </div>
       </div>
-      <div className="flex w-full lg:w-auto max-w-md gap-2">
+      <div className="flex w-full lg:w-auto max-w-md gap-2 items-center">
         <input type="text" placeholder="ชื่อผู้เล่น#แท็ก" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={handleKeyPress} className="w-full sm:w-64 bg-gray-950 border border-gray-700 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:border-red-500 transition-all font-bold" spellCheck="false" />
         <button onClick={onSearch} disabled={loading} className="bg-red-600 hover:bg-red-500 disabled:bg-red-800 text-white font-bold py-2 px-4 rounded-xl text-sm whitespace-nowrap">ค้นหาใหม่</button>
+        <ThemeToggle />
       </div>
     </nav>
   );

@@ -5,6 +5,7 @@ import MapsTab from './components/tabs/MapsTab'
 import ScoreboardModal from './components/ScoreboardModal'
 import HitMatrixCard from './components/HitMatrixCard'
 import SearchHistoryDropdown from './components/SearchHistoryDropdown'
+import ThemeToggle from './components/ThemeToggle'
 
 const VALORANT_MODES = [
   { id: 'All', name: 'ทุกโหมด (All Modes)' },
@@ -798,13 +799,17 @@ function App() {
             >
               ค้นหาใหม่
             </button>
+            <ThemeToggle />
           </div>
         </nav>
       )}
 
       {/* 🏠 หน้าแรก */}
       {!hasData && (
-        <div className="flex-1 flex flex-col items-center justify-center py-12 px-5 animate-fade-in">
+        <div className="flex-1 flex flex-col items-center justify-center py-12 px-5 animate-fade-in relative">
+          <div className="absolute top-4 right-6 sm:top-6 sm:right-8 z-30">
+            <ThemeToggle />
+          </div>
           <div className="text-center mb-8">
             <h1 className="text-5xl md:text-6xl font-black text-red-500 tracking-wider mb-2">VALORANT STATS</h1>
             <p className="text-gray-400 text-sm md:text-base tracking-widest uppercase">Enter your Riot ID to view match history</p>
